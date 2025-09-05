@@ -17,7 +17,20 @@ import { cn } from "@/lib/utils"
 import { format } from "date-fns"
 import { toast } from "sonner"
 import { addTask, updateTask, deleteTask } from "./actions"
-import { Task, TaskStatus, Priority, User } from "@prisma/client"
+import { Task, User } from "./actions"
+
+enum TaskStatus {
+  TO_DO = "TO_DO",
+  IN_PROGRESS = "IN_PROGRESS",
+  IN_REVIEW = "IN_REVIEW",
+  DONE = "DONE",
+}
+
+enum Priority {
+  LOW = "LOW",
+  MEDIUM = "MEDIUM",
+  HIGH = "HIGH",
+}
 
 const statuses = Object.values(TaskStatus).map(status => ({ value: status, label: status.replace("_", " ") }))
 const priorities = Object.values(Priority)

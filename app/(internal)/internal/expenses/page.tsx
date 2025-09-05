@@ -51,7 +51,9 @@ import { Calendar } from "@/components/ui/calendar"
 import { getExpenses, getProjects, addExpense, updateExpense, deleteExpense } from "./actions"
 import { Expense, Project } from "@prisma/client"
 
-type ExpenseWithProject = Omit<Expense, 'amount'> & { amount: string, project: Project }
+type ProjectWithBudgetAsString = Omit<Project, 'budget'> & { budget: string | null };
+
+type ExpenseWithProject = Omit<Expense, 'amount'> & { amount: string, project: ProjectWithBudgetAsString }
 
 const currencyFormatter = new Intl.NumberFormat('id-ID', {
     style: 'currency',
@@ -62,7 +64,7 @@ const currencyFormatter = new Intl.NumberFormat('id-ID', {
 
 export default function ExpensesPage() {
   const [data, setData] = React.useState<ExpenseWithProject[]>([])
-  const [projects, setProjects] = React.useState<Project[]>([])
+  const [projects, setProjects] = React.useState<ProjectWithBudgetAsString[]>([]) // Changed Project[] to ProjectWithBudgetAsString[]
   const [, startTransition] = React.useTransition()
 
   React.useEffect(() => {
@@ -282,7 +284,7 @@ function DataTableToolbar<TData>({ table }: DataTableToolbarProps<TData>) {
   )
 }
 
-function ActionMenu({ expense, projects }: { expense: ExpenseWithProject, projects: Project[] }) {
+function ActionMenu({ expense, projects }: { expense: ExpenseWithProject, projects: ProjectWithBudgetAsString[] }) {
     const [, startTransition] = React.useTransition()
     return (
         <DropdownMenu>
@@ -312,7 +314,7 @@ function ActionMenu({ expense, projects }: { expense: ExpenseWithProject, projec
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => startTransition(() => deleteExpense(expense.id))}>Continue</AlertDialogAction>
+                        <AlertDialogAction onClick={() => startTransition(() => deleteExpense(expense.id, expense.projectId))}>Continue</AlertDialogAction>
                         </AlertDialogFooter>
                     </AlertDialogContent>
                 </AlertDialog>
@@ -321,7 +323,7 @@ function ActionMenu({ expense, projects }: { expense: ExpenseWithProject, projec
     )
 }
 
-function ExpenseFormDialog({ expense, projects, trigger }: { expense?: ExpenseWithProject, projects: Project[], trigger?: React.ReactElement }) {
+function ExpenseFormDialog({ expense, projects, trigger }: { expense?: ExpenseWithProject, projects: ProjectWithBudgetAsString[], trigger?: React.ReactElement }) {
     const [open, setOpen] = React.useState(false)
     const [isPending, startTransition] = React.useTransition()
     const [form, setForm] = React.useState({ 
@@ -349,7 +351,7 @@ function ExpenseFormDialog({ expense, projects, trigger }: { expense?: ExpenseWi
     const handleSubmit = () => {
         startTransition(() => {
             if (expense) {
-                updateExpense(expense.id, { ...form })
+                updateExpense(expense.id, expense.projectId, { ...form })
             } else {
                 addExpense({ ...form })
             }

@@ -1,6 +1,7 @@
-"use client"
+'use client'
 
 import * as React from "react"
+import { useSession } from "next-auth/react"
 import { IconBell } from "@tabler/icons-react"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
@@ -10,19 +11,26 @@ import Link from "next/link"
 import { toast } from "sonner"
 import useSWR from "swr"
 
-// IMPORTANT: Replace these with actual user and organization IDs from your database
-// In a real application, these would come from the user's session or authentication context.
-const CURRENT_USER_ID = "clx0123456789abcdef0123456"; // Example ID, replace with a real user ID
-const CURRENT_ORG_ID = "cmf6tttw10000t46efkctz384"; // Example ID, replace with your organization ID
-
 const fetcher = (url: string) => fetch(url).then(res => res.json());
 
+interface CustomSessionUser {
+  id?: string;
+  organizationId?: string;
+  name?: string | null;
+  email?: string | null;
+  image?: string | null;
+}
+
 export function NotificationBell() {
+  const { data: session } = useSession();
   const [open, setOpen] = React.useState(false);
   const [, startTransition] = React.useTransition();
 
+  const userId = (session?.user as CustomSessionUser)?.id;
+  const orgId = (session?.user as CustomSessionUser)?.organizationId;
+
   const { data: notifications, error, mutate } = useSWR<Notification[]>(
-    `/api/notifications?userId=${CURRENT_USER_ID}&orgId=${CURRENT_ORG_ID}`,
+    userId && orgId ? `/api/notifications?userId=${userId}&orgId=${orgId}` : null,
     fetcher,
     {
       refreshInterval: 30000, // Poll for new notifications every 30 seconds
@@ -45,8 +53,12 @@ export function NotificationBell() {
           await markNotificationAsRead(notification.id);
           mutate(prev => prev?.map(n => n.id === notification.id ? { ...n, read: true } : n), false); // Optimistic update
           // mutate(); // Revalidate after update if optimistic update is not enough
-        } catch (error: any) {
-          toast.error("Failed to mark notification as read: " + error.message);
+        } catch (error: unknown) {
+          let errorMessage = "Failed to mark notification as read.";
+          if (error instanceof Error) {
+            errorMessage += " " + error.message;
+          }
+          toast.error(errorMessage);
         }
       }
       setOpen(false); // Close dropdown

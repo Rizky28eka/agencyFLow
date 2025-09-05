@@ -60,12 +60,14 @@ import { Invoice, Client, Project, InvoiceStatus } from "@prisma/client"
 
 const statuses = Object.values(InvoiceStatus).map(status => ({ value: status, label: status.replace("_", " ") }))
 
-type InvoiceWithRelations = Omit<Invoice, 'totalAmount'> & { totalAmount: string, client: Client, project: Project }
+type ProjectWithBudgetAsString = Omit<Project, 'budget'> & { budget: string | null }; // Re-define or import if already defined globally
+
+type InvoiceWithRelations = Omit<Invoice, 'totalAmount'> & { totalAmount: string, client: Client, project: ProjectWithBudgetAsString }
 
 export default function InvoicesPage() {
   const [data, setData] = React.useState<InvoiceWithRelations[]>([])
   const [clients, setClients] = React.useState<Client[]>([])
-  const [projects, setProjects] = React.useState<Project[]>([])
+  const [projects, setProjects] = React.useState<ProjectWithBudgetAsString[]>([])
 
   React.useEffect(() => {
     getInvoices().then(setData)
@@ -469,7 +471,7 @@ interface DataTableFacetedFilterProps<TData, TValue> {
     )
   }
 
-function ActionMenu({ invoice, clients, projects }: { invoice: InvoiceWithRelations, clients: Client[], projects: Project[] }) {
+function ActionMenu({ invoice, clients, projects }: { invoice: InvoiceWithRelations, clients: Client[], projects: ProjectWithBudgetAsString[] }) {
     const [, startTransition] = React.useTransition()
     return (
         <DropdownMenu>
@@ -508,7 +510,7 @@ function ActionMenu({ invoice, clients, projects }: { invoice: InvoiceWithRelati
     )
 }
 
-function InvoiceFormDialog({ invoice, clients, projects, trigger }: { invoice?: InvoiceWithRelations, clients: Client[], projects: Project[], trigger?: React.ReactElement }) {
+function InvoiceFormDialog({ invoice, clients, projects, trigger }: { invoice?: InvoiceWithRelations, clients: Client[], projects: ProjectWithBudgetAsString[], trigger?: React.ReactElement }) {
     const [open, setOpen] = React.useState(false)
     const [isPending, startTransition] = React.useTransition()
     const [form, setForm] = React.useState(invoice || { invoiceNumber: "", totalAmount: 0, status: InvoiceStatus.DRAFT, clientId: "", projectId: "", issueDate: new Date(), dueDate: new Date() })

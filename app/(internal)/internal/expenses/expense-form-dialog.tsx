@@ -18,9 +18,11 @@ import { toast } from "sonner"
 import { addExpense, updateExpense, deleteExpense } from "./actions"
 import { Expense } from "@prisma/client"
 
+type ExpenseWithAmountAsString = Omit<Expense, 'amount'> & { amount: string };
+
 type ExpenseFormDialogProps = {
   projectId: string;
-  expense?: Expense;
+  expense?: ExpenseWithAmountAsString;
   trigger?: React.ReactElement;
   onSuccess?: () => void;
 };
@@ -120,7 +122,7 @@ export function ExpenseFormDialog({ projectId, expense, trigger, onSuccess }: Ex
 }
 
 type ExpenseActionsProps = {
-    expense: Expense;
+    expense: ExpenseWithAmountAsString;
     projectId: string;
     onSuccess?: () => void;
 }

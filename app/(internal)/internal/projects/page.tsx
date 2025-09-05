@@ -58,8 +58,16 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { getProjects, getClients, addProject, updateProject, deleteProject } from "./actions"
-import { Project, Client, ProjectStatus } from "@prisma/client"
+import { getProjects, getClients, addProject, updateProject, deleteProject, Project, Client } from "./actions"
+
+enum ProjectStatus {
+  PLANNING = "PLANNING",
+  ON_GOING = "ON_GOING",
+  ON_HOLD = "ON_HOLD",
+  COMPLETED = "COMPLETED",
+  CANCELLED = "CANCELLED",
+}
+
 import { Calendar } from "@/components/ui/calendar"
 import { format } from "date-fns"
 import { toast } from "sonner"

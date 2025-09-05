@@ -1,9 +1,17 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { PrismaClient, ProjectStatus } from "@prisma/client"
+import { PrismaClient, ProjectStatus, Prisma } from "@prisma/client"
 
 const prisma = new PrismaClient()
+
+export type Project = Prisma.ProjectGetPayload<object>;
+export type Task = Prisma.TaskGetPayload<object>;
+export type TimeEntry = Prisma.TimeEntryGetPayload<object>;
+export type User = Prisma.UserGetPayload<object>;
+export type Expense = Prisma.ExpenseGetPayload<object>;
+export type File = Prisma.FileGetPayload<object>;
+export type Client = Prisma.ClientGetPayload<object>;
 
 export async function getProjects() {
     const projects = await prisma.project.findMany({
@@ -28,10 +36,8 @@ export async function getProjects() {
         const budgetNum = parseFloat(budget);
         const profitability = budgetNum - totalExpensesNum;
 
-        const { budget: originalBudget, ...rest } = project; // Destructure to exclude original budget
-
         return {
-            ...rest,
+            ...project,
             budget: budget,
             totalExpenses: totalExpenses,
             profitability: profitability.toString(),
@@ -71,11 +77,8 @@ export async function getProjectById(id: string) {
     const budget = Number(project.budget) || 0;
     const profitability = budget - totalExpenses;
 
-    // Create a new object without the original Decimal fields
-    const { budget: originalBudget, expenses: originalExpenses, ...restOfProject } = project;
-
     return {
-        ...restOfProject,
+        ...project,
         budget: project.budget?.toString() ?? "0",
         expenses: sanitizedExpenses, // Use the sanitized expenses
         totalExpenses: totalExpenses.toString(),

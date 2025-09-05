@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { PrismaClient } from "@prisma/client"
+import { createActivity } from "../activities/actions"; // Import createActivity
 
 const prisma = new PrismaClient()
 
@@ -37,7 +38,7 @@ export async function addExpense(data: { description: string, amount: string, da
         throw new Error("Missing required fields");
     }
 
-    await prisma.expense.create({
+    const newExpense = await prisma.expense.create({
         data: {
             description: data.description,
             amount: parseFloat(data.amount),
@@ -46,6 +47,13 @@ export async function addExpense(data: { description: string, amount: string, da
             organizationId,
         },
     });
+
+    // Create activity
+    await createActivity(
+        data.projectId,
+        "EXPENSE_ADDED",
+        `Expense "${newExpense.description}" of ${newExpense.amount.toString()} was added.`
+    );
 
     revalidatePath(`/internal/projects/${data.projectId}`);
     revalidatePath("/internal/expenses");
@@ -56,7 +64,7 @@ export async function updateExpense(id: string, projectId: string, data: { descr
         throw new Error("Missing required fields");
     }
 
-    await prisma.expense.update({
+    const updatedExpense = await prisma.expense.update({
         where: { id },
         data: {
             description: data.description,
@@ -65,14 +73,29 @@ export async function updateExpense(id: string, projectId: string, data: { descr
         },
     });
 
+    // Create activity
+    await createActivity(
+        projectId,
+        "EXPENSE_UPDATED",
+        `Expense "${updatedExpense.description}" was updated.`
+    );
+
     revalidatePath(`/internal/projects/${projectId}`);
     revalidatePath("/internal/expenses");
 }
 
 export async function deleteExpense(id: string, projectId: string) {
-    await prisma.expense.delete({
+    const deletedExpense = await prisma.expense.delete({
         where: { id },
     });
+
+    // Create activity
+    await createActivity(
+        projectId,
+        "EXPENSE_DELETED",
+        `Expense "${deletedExpense.description}" was deleted.`
+    );
+
     revalidatePath(`/internal/projects/${projectId}`);
     revalidatePath("/internal/expenses");
 }

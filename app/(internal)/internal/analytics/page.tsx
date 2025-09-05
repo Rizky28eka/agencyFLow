@@ -1,6 +1,5 @@
 import { getProjects } from "../projects/actions";
 import { AnalyticsCharts } from "./charts";
-import { ProjectStatus } from "@prisma/client";
 
 export default async function AnalyticsPage() {
     const projects = await getProjects();

@@ -28,6 +28,8 @@ model Organization {
   services    Service[]
   expenses    Expense[]
   notifications Notification[]
+  files       File[] // Added for File Sharing
+  activities  Activity[] // Added for Activity Feed
 }
 
 model User {
@@ -46,6 +48,9 @@ model User {
 
   assignedTasks Task[]
   notifications Notification[]
+  timeEntries   TimeEntry[] // Added for Time Tracking
+  uploadedFiles File[] // Added for File Sharing
+  activities    Activity[] // Added for Activity Feed
 }
 
 // ===================================================================
@@ -127,6 +132,9 @@ model Project {
   tasks        Task[]
   invoices     Invoice[]
   expenses     Expense[]
+  timeEntries  TimeEntry[] // Added for Time Tracking
+  files        File[] // Added for File Sharing
+  activities   Activity[] // Added for Activity Feed
 }
 
 enum ProjectStatus {
@@ -157,6 +165,7 @@ model Task {
   // New relations for task dependencies
   dependenciesOn TaskDependency[] @relation("DependsOn")
   dependentTasks TaskDependency[] @relation("DependentTasks")
+  timeEntries    TimeEntry[] // Added for Time Tracking
 }
 
 model TaskDependency {
@@ -287,4 +296,69 @@ model Expense {
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+// ===================================================================
+// Time Tracking Model
+// ===================================================================
+
+model TimeEntry {
+  id          String    @id @default(cuid())
+  hours       Decimal
+  date        DateTime
+  description String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  taskId      String? // Optional: if time is logged against a specific task
+  task        Task?     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  projectId   String
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+// ===================================================================
+// File Sharing Model
+// ===================================================================
+
+model File {
+  id             String    @id @default(cuid())
+  name           String
+  url            String    // URL or path to the stored file
+  fileType       String?   // e.g., "image/jpeg", "application/pdf"
+  size           Int?      // File size in bytes
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  projectId      String
+  project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  uploadedById   String
+  uploadedBy     User      @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+// ===================================================================
+// Activity Feed Model
+// ===================================================================
+
+model Activity {
+  id             String    @id @default(cuid())
+  type           String    // e.g., "TASK_CREATED", "FILE_UPLOADED", "EXPENSE_ADDED"
+  description    String    // A human-readable message describing the activity
+  createdAt      DateTime  @default(now())
+
+  projectId      String
+  project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 }

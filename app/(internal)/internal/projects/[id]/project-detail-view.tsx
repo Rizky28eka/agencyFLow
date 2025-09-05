@@ -3,17 +3,124 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { IconArrowLeft, IconUser, IconCash, IconReceipt2, IconChecklist } from "@tabler/icons-react";
+import { IconArrowLeft, IconUser, IconCash, IconReceipt2, IconChecklist, IconClock, IconFile, IconDownload, IconDots, IconTrash, IconActivity } from "@tabler/icons-react";
 import Link from "next/link";
 import { ExpenseFormDialog, ExpenseActions } from "../../expenses/expense-form-dialog";
 import { TaskFormDialog, TaskActions } from "../../tasks/task-form-dialog";
-import { Prisma } from '@prisma/client';
+import { TimeEntryFormDialog, TimeEntryActions } from "../../time-entries/time-entry-form-dialog";
+import { Project, Task, User, Expense, File, Client } from '../../projects/actions';
+import { uploadFile, deleteFile } from '../../files/actions';
+import { Activity } from '../../activities/actions';
+import { format } from "date-fns";
+import { useActionState } from 'react';
+import { useFormStatus } from 'react-dom';
+import { toast } from 'sonner';
+import * as React from "react";
+import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+
+
+type SanitizedExpense = Omit<Expense, 'amount'> & { amount: string };
+
+type FileWithUploadedBy = File & { uploadedBy: { name: string | null } };
 
 // Define a more specific type for the project data after serialization
-type ProjectDetailProps = Prisma.PromiseReturnType<typeof import('../actions').getProjectById>;
-type UserListProps = Prisma.PromiseReturnType<typeof import('../actions').getUsers>; // New type for users
+type ProjectDetailProps = Omit<Project, 'budget'> & { client: Client, tasks: (Task & { assignee: User | null })[], expenses: SanitizedExpense[], files: FileWithUploadedBy[], budget: number, totalExpenses: number, profitability: number }; // Changed budget to number, added totalExpenses and profitability
+type UserListProps = User[];
+import { TimeEntryWithRelations } from '../../time-entries/actions';
 
-export function ProjectDetailView({ project, users }: { project: ProjectDetailProps, users: UserListProps }) {
+function FileUploadButton() {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" disabled={pending}>
+      {pending ? 'Uploading...' : 'Upload File'}
+    </Button>
+  );
+}
+
+type FileActionsProps = {
+  file: File;
+  projectId: string;
+  onSuccess?: () => void;
+}
+
+function FileActions({ file, projectId, onSuccess }: FileActionsProps) {
+  const [, startTransition] = React.useTransition();
+
+  const handleDelete = () => {
+    startTransition(async () => {
+      const result = await deleteFile(file.id, projectId);
+      if (result.success) {
+        toast.success(result.message);
+        onSuccess?.();
+      } else {
+        toast.error(result.message);
+      }
+    });
+  };
+
+  return (
+    <AlertDialog>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" className="h-8 w-8 p-0">
+            <span className="sr-only">Open menu</span>
+            <IconDots className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem asChild>
+            <a href={file.url} target="_blank" rel="noopener noreferrer" className="flex items-center">
+              <IconDownload className="mr-2 h-4 w-4" />
+              Download
+            </a>
+          </DropdownMenuItem>
+          <AlertDialogTrigger asChild>
+            <DropdownMenuItem className="text-red-500">
+              <IconTrash className="mr-2 h-4 w-4" />
+              Delete
+            </DropdownMenuItem>
+          </AlertDialogTrigger>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This action cannot be undone. This will permanently delete this file.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={handleDelete} className="bg-red-500 hover:bg-red-600">
+            Delete
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+
+type ActivityWithUser = Activity & { user: { name: string | null } };
+
+export function ProjectDetailView({ project, users, timeEntries, activities }: { project: ProjectDetailProps, users: UserListProps, timeEntries: TimeEntryWithRelations[], activities: ActivityWithUser[] }) {
+  // Move hooks above conditional return
+  const [fileUploadState, fileUploadAction] = useActionState(uploadFile, { success: false, message: "" });
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    if (fileUploadState.success) {
+      toast.success(fileUploadState.message);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''; // Clear the file input
+      }
+    } else if (fileUploadState.message) {
+      toast.error(fileUploadState.message);
+    }
+  }, [fileUploadState]);
+
   if (!project) {
     return <div>Project not found.</div>;
   }
@@ -22,6 +129,8 @@ export function ProjectDetailView({ project, users }: { project: ProjectDetailPr
     style: 'currency',
     currency: 'USD',
   });
+
+  const totalHoursLogged = timeEntries.reduce((sum, entry) => sum + Number(entry.hours), 0);
 
   return (
     <div className="w-full p-4 space-y-6">
@@ -55,7 +164,7 @@ export function ProjectDetailView({ project, users }: { project: ProjectDetailPr
                     <TableRow><TableHead>Title</TableHead><TableHead>Status</TableHead><TableHead>Priority</TableHead><TableHead>Assignee</TableHead><TableHead>Due Date</TableHead><TableHead><span className="sr-only">Actions</span></TableHead></TableRow>
                   </TableHeader>
                   <TableBody>
-                    {project.tasks.map((task) => (
+                    {project.tasks.map((task: Task & { assignee: User | null }) => (
                       <TableRow key={task.id}><TableCell>{task.title}</TableCell><TableCell><Badge variant="outline">{task.status.replace("_", " ")}</Badge></TableCell><TableCell>{task.priority}</TableCell><TableCell>{task.assignee?.name || 'Unassigned'}</TableCell><TableCell>{task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'N/A'}</TableCell><TableCell><TaskActions task={task} projectId={project.id} users={users} /></TableCell></TableRow>
                     ))}
                   </TableBody>
@@ -81,13 +190,99 @@ export function ProjectDetailView({ project, users }: { project: ProjectDetailPr
                     <TableRow><TableHead>Description</TableHead><TableHead>Date</TableHead><TableHead>Amount</TableHead><TableHead><span className="sr-only">Actions</span></TableHead></TableRow>
                   </TableHeader>
                   <TableBody>
-                    {project.expenses.map((expense) => (
+                    {project.expenses.map((expense: SanitizedExpense) => (
                       <TableRow key={expense.id}><TableCell>{expense.description}</TableCell><TableCell>{new Date(expense.date).toLocaleDateString()}</TableCell><TableCell>{currencyFormatter.format(Number(expense.amount))}</TableCell><TableCell><ExpenseActions expense={expense} projectId={project.id} /></TableCell></TableRow>
                     ))}
                   </TableBody>
                 </Table>
               ) : (
                 <p className="text-muted-foreground">No expenses for this project yet.</p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <IconClock size={20} />
+                Time Entries ({totalHoursLogged.toFixed(2)} hours)
+              </CardTitle>
+              <TimeEntryFormDialog projectId={project.id} tasks={project.tasks} />
+            </CardHeader>
+            <CardContent>
+              {timeEntries.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Hours</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead>Task</TableHead>
+                      <TableHead>User</TableHead>
+                      <TableHead><span className="sr-only">Actions</span></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {timeEntries.map((entry) => (
+                      <TableRow key={entry.id}>
+                        <TableCell>{format(new Date(entry.date), "PPP")}</TableCell>
+                        <TableCell>{entry.hours.toFixed(2)}</TableCell>
+                        <TableCell>{entry.description}</TableCell>
+                        <TableCell>{entry.task?.title || 'N/A'}</TableCell>
+                        <TableCell>{entry.user.name}</TableCell>
+                        <TableCell><TimeEntryActions timeEntry={entry} projectId={project.id} /></TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <p className="text-muted-foreground">No time entries for this project yet.</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Files Card */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <IconFile size={20} />
+                Files
+              </CardTitle>
+              <form action={fileUploadAction} className="flex items-center gap-2">
+                <input type="hidden" name="projectId" value={project.id} />
+                <input type="file" name="file" ref={fileInputRef} required className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+                <FileUploadButton />
+              </form>
+            </CardHeader>
+            <CardContent>
+              {project.files.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>File Name</TableHead>
+                      <TableHead>Uploaded By</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead><span className="sr-only">Actions</span></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {project.files.map((file: FileWithUploadedBy) => (
+                      <TableRow key={file.id}>
+                        <TableCell>
+                          <a href={file.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-blue-600 hover:underline">
+                            <IconFile size={16} />
+                            {file.name}
+                          </a>
+                        </TableCell>
+                        <TableCell>{file.uploadedBy.name}</TableCell>
+                        <TableCell>{format(new Date(file.createdAt), "PPP")}</TableCell>
+                        <TableCell><FileActions file={file} projectId={project.id} /></TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <p className="text-muted-foreground">No files uploaded for this project yet.</p>
               )}
             </CardContent>
           </Card>
@@ -129,6 +324,40 @@ export function ProjectDetailView({ project, users }: { project: ProjectDetailPr
                 <span>Profitability</span>
                 <span>{currencyFormatter.format(Number(project.profitability))}</span>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Activity Feed Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <IconActivity size={20} />
+                Activity Feed
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {activities.length > 0 ? (
+                <div className="space-y-4">
+                  {activities.map((activity: ActivityWithUser) => (
+                    <div key={activity.id} className="flex items-start space-x-3">
+                      <div className="flex-shrink-0">
+                        {/* You can add an icon based on activity.type here */}
+                        <IconActivity size={16} className="text-muted-foreground" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm">
+                          <span className="font-semibold">{activity.user.name}</span> {activity.description}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {format(new Date(activity.createdAt), "MMM dd, yyyy HH:mm")}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-muted-foreground">No recent activity for this project.</p>
+              )}
             </CardContent>
           </Card>
         </div>
