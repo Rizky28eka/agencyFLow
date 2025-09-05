@@ -530,7 +530,7 @@ function InvoiceFormDialog({ invoice, clients, projects, trigger }: { invoice?: 
         startTransition(() => {
             const data = {
                 ...form,
-                totalAmount: Number(form.totalAmount),
+                totalAmount: form.totalAmount.toString(),
             };
             if (invoice) {
                 updateInvoice(invoice.id, data)

@@ -326,14 +326,14 @@ function ExpenseFormDialog({ expense, projects, trigger }: { expense?: ExpenseWi
     const [isPending, startTransition] = React.useTransition()
     const [form, setForm] = React.useState({ 
         description: expense?.description || "", 
-        amount: expense?.amount ? Number(expense.amount) : 0,
+        amount: expense?.amount || "0",
         date: expense?.date || new Date(),
         projectId: expense?.projectId || ""
     })
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { id, value } = e.target
-        setForm({ ...form, [id]: id === 'amount' ? parseFloat(value) : value })
+        setForm({ ...form, [id]: value })
     }
 
     const handleSelectChange = (id: string, value: string) => {

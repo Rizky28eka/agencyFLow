@@ -21,14 +21,19 @@ export async function getProjects() {
 
     return projects.map(project => {
         const expenseSum = expenseSums.find(e => e.projectId === project.id);
-        const totalExpenses = expenseSum?._sum.amount?.toNumber() ?? 0;
-        const budget = project.budget?.toNumber() ?? 0;
-        const profitability = budget - totalExpenses;
+        const totalExpenses = expenseSum?._sum.amount?.toString() ?? "0";
+        const budget = project.budget?.toString() ?? "0";
+
+        const totalExpensesNum = parseFloat(totalExpenses);
+        const budgetNum = parseFloat(budget);
+        const profitability = budgetNum - totalExpensesNum;
+
+        const { budget: originalBudget, ...rest } = project; // Destructure to exclude original budget
 
         return {
-            ...project,
-            budget: budget.toString(),
-            totalExpenses: totalExpenses.toString(),
+            ...rest,
+            budget: budget,
+            totalExpenses: totalExpenses,
             profitability: profitability.toString(),
         };
     });
@@ -38,7 +43,7 @@ export async function getClients() {
     return await prisma.client.findMany()
 }
 
-export async function addProject(data: { name: string, description: string, status: ProjectStatus, clientId: string, budget: number }) {
+export async function addProject(data: { name: string, description: string, status: ProjectStatus, clientId: string, budget: string }) {
     // In a real app, you'd get the organizationId from the user's session
     const organizationId = "cmf6tttw10000t46efkctz384";
     await prisma.project.create({
@@ -50,7 +55,7 @@ export async function addProject(data: { name: string, description: string, stat
     revalidatePath("/internal/projects")
 }
 
-export async function updateProject(id: string, data: { name: string, description: string, status: ProjectStatus, clientId: string, budget: number }) {
+export async function updateProject(id: string, data: { name: string, description: string, status: ProjectStatus, clientId: string, budget: string }) {
     await prisma.project.update({
         where: { id },
         data,

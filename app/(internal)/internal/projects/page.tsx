@@ -519,12 +519,12 @@ function ProjectFormDialog({ project, clients, trigger }: { project?: ProjectWit
         description: project?.description || "", 
         status: project?.status || ProjectStatus.PLANNING, 
         clientId: project?.clientId || "",
-        budget: project?.budget ? Number(project.budget) : 0
+        budget: project?.budget ? String(project.budget) : "0"
     })
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { id, value } = e.target
-        setForm({ ...form, [id]: id === 'budget' ? parseFloat(value) : value })
+        setForm({ ...form, [id]: value })
     }
 
     const handleSelectChange = (id: string, value: string) => {
