@@ -1,0 +1,256 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===================================================================
+// Core Tenancy and User Models
+// ===================================================================
+
+model Organization {
+  id          String    @id @default(cuid())
+  name        String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  users       User[]
+  clients     Client[]
+  projects    Project[]
+  invoices    Invoice[]
+  quotations  Quotation[]
+  services    Service[]
+  expenses    Expense[]
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String?
+  passwordHash String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  roleId       String
+  role         Role      @relation(fields: [roleId], references: [id])
+
+  assignedTasks Task[]
+}
+
+model Role {
+  id    String   @id @default(cuid())
+  name  UserRole @unique // ADMIN, PROJECT_MANAGER, MEMBER, CLIENT
+  users User[]
+}
+
+enum UserRole {
+  ADMIN
+  PROJECT_MANAGER
+  MEMBER
+  CLIENT
+}
+
+// ===================================================================
+// Client and Project Management Models
+// ===================================================================
+
+enum ClientStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model Client {
+  id           String    @id @default(cuid())
+  name         String
+  email        String    @unique
+  phone        String?
+  address      String?
+  company      String?
+  status       ClientStatus @default(ACTIVE)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  projects    Project[]
+  quotations  Quotation[]
+  invoices    Invoice[]
+}
+
+model Project {
+  id           String        @id @default(cuid())
+  name         String
+  description  String?
+  status       ProjectStatus @default(PLANNING)
+  budget       Decimal?      @default(0)
+  startDate    DateTime?
+  endDate      DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  clientId     String
+  client       Client        @relation(fields: [clientId], references: [id])
+
+  tasks        Task[]
+  invoices     Invoice[]
+  expenses     Expense[]
+}
+
+enum ProjectStatus {
+  PLANNING
+  ON_GOING
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+model Task {
+  id          String     @id @default(cuid())
+  title       String
+  description String?
+  status      TaskStatus @default(TO_DO)
+  priority    Priority   @default(MEDIUM)
+  dueDate     DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  projectId   String
+  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  assigneeId  String?
+  assignee    User?      @relation(fields: [assigneeId], references: [id])
+}
+
+enum TaskStatus {
+  TO_DO
+  IN_PROGRESS
+  IN_REVIEW
+  DONE
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+// ===================================================================
+// Financial and Pre-Project Models
+// ===================================================================
+
+model Quotation {
+  id          String         @id @default(cuid())
+  status      QuotationStatus @default(DRAFT)
+  totalAmount Decimal
+  issueDate   DateTime
+  expiryDate  DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  clientId    String
+  client      Client         @relation(fields: [clientId], references: [id])
+
+  items       QuotationItem[]
+}
+
+enum QuotationStatus {
+  DRAFT
+  SENT
+  VIEWED
+  APPROVED
+  REJECTED
+}
+
+model QuotationItem {
+  id          String    @id @default(cuid())
+  description String
+  quantity    Int
+  unitPrice   Decimal
+
+  quotationId String
+  quotation   Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+
+  // Link to a reusable service for easy project creation
+  serviceId   String?
+  service     Service?  @relation(fields: [serviceId], references: [id])
+}
+
+// ===================================================================
+// Service Library Model (Bank Item & Jasa)
+// ===================================================================
+
+model Service {
+  id            String          @id @default(cuid())
+  name          String
+  description   String?
+  defaultPrice  Decimal
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  organizationId String
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Used in many quotation items
+  quotationItems QuotationItem[]
+}
+
+model Invoice {
+  id            String        @id @default(cuid())
+  invoiceNumber String
+  status        InvoiceStatus @default(DRAFT)
+  totalAmount   Decimal
+  issueDate     DateTime
+  dueDate       DateTime
+  paidDate      DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  clientId      String
+  client        Client        @relation(fields: [clientId], references: [id])
+
+  projectId     String
+  project       Project       @relation(fields: [projectId], references: [id])
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+model Expense {
+  id          String   @id @default(cuid())
+  description String
+  amount      Decimal
+  date        DateTime
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  projectId   String
+  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
