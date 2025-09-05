@@ -1,13 +1,15 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import {
-    IconSelector,
-    IconDots,
-    IconAdjustmentsHorizontal,
-    IconPlus,
-    IconX,
-    IconCheck
+  IconSelector,
+  IconDots,
+  IconAdjustmentsHorizontal,
+  IconPlus,
+  IconX,
+  IconCheck,
+  IconCalendar as IconCalendarTabler,
 } from "@tabler/icons-react"
 import {
   ColumnDef,
@@ -38,6 +40,7 @@ import {
   DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Table,
   TableBody,
@@ -57,14 +60,17 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { getProjects, getClients, addProject, updateProject, deleteProject } from "./actions"
 import { Project, Client, ProjectStatus } from "@prisma/client"
+import { Calendar } from "@/components/ui/calendar"
+import { format } from "date-fns"
+import { toast } from "sonner"
 
 const statuses = Object.values(ProjectStatus).map(status => ({ value: status, label: status.replace("_", " ") }))
 
 type ProjectWithClient = Omit<Project, 'budget'> & { budget: string; client: Client; totalExpenses: string; profitability: string; }
 
 const currencyFormatter = new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
+  style: 'currency',
+  currency: 'USD',
 });
 
 export default function ProjectsPage() {
@@ -74,17 +80,14 @@ export default function ProjectsPage() {
 
   React.useEffect(() => {
     startTransition(() => {
-        getProjects().then(data => setData(data))
-        getClients().then(setClients)
+      getProjects().then(data => setData(data))
+      getClients().then(setClients)
     })
   }, [])
 
   const [sorting, setSorting] = React.useState<SortingState>([])
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
-    []
-  )
-  const [columnVisibility, setColumnVisibility] =
-    React.useState<VisibilityState>({})
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
+  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
   const [rowSelection, setRowSelection] = React.useState({})
 
   const columns: ColumnDef<ProjectWithClient>[] = [
@@ -120,7 +123,14 @@ export default function ProjectsPage() {
           </Button>
         )
       },
-      cell: ({ row }) => <div>{row.getValue("name")}</div>,
+      cell: ({ row }) => {
+        const project = row.original
+        return (
+          <Link href={`/internal/projects/${project.id}`} className="font-medium text-primary hover:underline">
+            {row.getValue("name")}
+          </Link>
+        )
+      },
     },
     {
       accessorKey: "client",
@@ -128,19 +138,19 @@ export default function ProjectsPage() {
       cell: ({ row }) => <div>{row.original.client.name}</div>,
     },
     {
-        accessorKey: "budget",
-        header: "Budget",
-        cell: ({ row }) => <div>{currencyFormatter.format(Number(row.original.budget))}</div>,
+      accessorKey: "budget",
+      header: "Budget",
+      cell: ({ row }) => <div>{currencyFormatter.format(Number(row.original.budget))}</div>,
     },
     {
-        accessorKey: "totalExpenses",
-        header: "Total Expenses",
-        cell: ({ row }) => <div>{currencyFormatter.format(Number(row.original.totalExpenses))}</div>,
+      accessorKey: "totalExpenses",
+      header: "Total Expenses",
+      cell: ({ row }) => <div>{currencyFormatter.format(Number(row.original.totalExpenses))}</div>,
     },
     {
-        accessorKey: "profitability",
-        header: "Profitability",
-        cell: ({ row }) => <div>{currencyFormatter.format(Number(row.original.profitability))}</div>,
+      accessorKey: "profitability",
+      header: "Profitability",
+      cell: ({ row }) => <div>{currencyFormatter.format(Number(row.original.profitability))}</div>,
     },
     {
       accessorKey: "status",
@@ -163,9 +173,8 @@ export default function ProjectsPage() {
       enableHiding: false,
       cell: ({ row }) => {
         const project = row.original
-  
         return (
-            <ActionMenu project={project} clients={clients} setData={setData} />
+          <ActionMenu project={project} clients={clients} setData={setData} />
         )
       },
     },
@@ -194,11 +203,11 @@ export default function ProjectsPage() {
 
   return (
     <div className="w-full p-4">
-        <div className="flex items-center justify-between mb-4">
-            <h1 className="text-2xl font-bold">Projects</h1>
-            <ProjectFormDialog clients={clients} />
-        </div>
-        <DataTableToolbar table={table} />
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-bold">Projects</h1>
+        <ProjectFormDialog clients={clients} />
+      </div>
+      <DataTableToolbar table={table} />
       <div className="rounded-md border mt-4">
         <Table>
           <TableHeader>
@@ -210,9 +219,9 @@ export default function ProjectsPage() {
                       {header.isPlaceholder
                         ? null
                         : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
                     </TableHead>
                   )
                 })}
@@ -348,258 +357,323 @@ function DataTableToolbar<TData>({ table }: DataTableToolbarProps<TData>) {
 }
 
 interface DataTableFacetedFilterProps<TData, TValue> {
-    column?: Column<TData, TValue>
-    title?: string
-    options: {
-      label: string
-      value: string
-      icon?: React.ComponentType<{ className?: string }>
-    }[]
-  }
-  
-  function DataTableFacetedFilter<TData, TValue>({
-    column,
-    title,
-    options,
-  }: DataTableFacetedFilterProps<TData, TValue>) {
-    const facets = column?.getFacetedUniqueValues()
-    const selectedValues = new Set(column?.getFilterValue() as string[])
-  
-    return (
-      <Popover>
-        <PopoverTrigger asChild>
-          <Button variant="outline" size="sm" className="h-8 border-dashed">
-            <IconPlus className="mr-2 h-4 w-4" />
-            {title}
-            {selectedValues?.size > 0 && (
-              <>
-                <Separator orientation="vertical" className="mx-2 h-4" />
-                <Badge
-                  variant="secondary"
-                  className="rounded-sm px-1 font-normal lg:hidden"
-                >
-                  {selectedValues.size}
-                </Badge>
-                <div className="hidden space-x-1 lg:flex">
-                  {selectedValues.size > 2 ? (
-                    <Badge
-                      variant="secondary"
-                      className="rounded-sm px-1 font-normal"
+  column?: Column<TData, TValue>
+  title?: string
+  options: {
+    label: string
+    value: string
+    icon?: React.ComponentType<{ className?: string }>
+  }[]
+}
+
+function DataTableFacetedFilter<TData, TValue>({
+  column,
+  title,
+  options,
+}: DataTableFacetedFilterProps<TData, TValue>) {
+  const facets = column?.getFacetedUniqueValues()
+  const selectedValues = new Set(column?.getFilterValue() as string[])
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="outline" size="sm" className="h-8 border-dashed">
+          <IconPlus className="mr-2 h-4 w-4" />
+          {title}
+          {selectedValues?.size > 0 && (
+            <>
+              <Separator orientation="vertical" className="mx-2 h-4" />
+              <Badge
+                variant="secondary"
+                className="rounded-sm px-1 font-normal lg:hidden"
+              >
+                {selectedValues.size}
+              </Badge>
+              <div className="hidden space-x-1 lg:flex">
+                {selectedValues.size > 2 ? (
+                  <Badge
+                    variant="secondary"
+                    className="rounded-sm px-1 font-normal"
+                  >
+                    {selectedValues.size} selected
+                  </Badge>
+                ) : (
+                  options
+                    .filter((option) => selectedValues.has(option.value))
+                    .map((option) => (
+                      <Badge
+                        variant="secondary"
+                        key={option.value}
+                        className="rounded-sm px-1 font-normal"
+                      >
+                        {option.label}
+                      </Badge>
+                    ))
+                )}
+              </div>
+            </>
+          )}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[200px] p-0" align="start">
+        <Command>
+          <CommandInput placeholder={title} />
+          <CommandList>
+            <CommandEmpty>No results found.</CommandEmpty>
+            <CommandGroup>
+              {options.map((option) => {
+                const isSelected = selectedValues.has(option.value)
+                return (
+                  <CommandItem
+                    key={option.value}
+                    onSelect={() => {
+                      if (isSelected) {
+                        selectedValues.delete(option.value)
+                      } else {
+                        selectedValues.add(option.value)
+                      }
+                      const filterValues = Array.from(selectedValues)
+                      column?.setFilterValue(
+                        filterValues.length ? filterValues : undefined
+                      )
+                    }}
+                  >
+                    <div
+                      className={cn(
+                        "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+                        isSelected
+                          ? "bg-primary text-primary-foreground"
+                          : "opacity-50 [&_svg]:invisible"
+                      )}
                     >
-                      {selectedValues.size} selected
-                    </Badge>
-                  ) : (
-                    options
-                      .filter((option) => selectedValues.has(option.value))
-                      .map((option) => (
-                        <Badge
-                          variant="secondary"
-                          key={option.value}
-                          className="rounded-sm px-1 font-normal"
-                        >
-                          {option.label}
-                        </Badge>
-                      ))
-                  )}
-                </div>
+                      <IconCheck className={cn("h-4 w-4")} />
+                    </div>
+                    {option.icon && (
+                      <option.icon className="mr-2 h-4 w-4 text-muted-foreground" />
+                    )}
+                    <span>{option.label}</span>
+                    {facets?.get(option.value) && (
+                      <span className="ml-auto flex h-4 w-4 items-center justify-center font-mono text-xs">
+                        {facets.get(option.value)}
+                      </span>
+                    )}
+                  </CommandItem>
+                )
+              })}
+            </CommandGroup>
+            {selectedValues.size > 0 && (
+              <>
+                <CommandSeparator />
+                <CommandGroup>
+                  <CommandItem
+                    onSelect={() => column?.setFilterValue(undefined)}
+                    className="justify-center text-center"
+                  >
+                    Clear filters
+                  </CommandItem>
+                </CommandGroup>
               </>
             )}
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-[200px] p-0" align="start">
-          <Command>
-            <CommandInput placeholder={title} />
-            <CommandList>
-              <CommandEmpty>No results found.</CommandEmpty>
-              <CommandGroup>
-                {options.map((option) => {
-                  const isSelected = selectedValues.has(option.value)
-                  return (
-                    <CommandItem
-                      key={option.value}
-                      onSelect={() => {
-                        if (isSelected) {
-                          selectedValues.delete(option.value)
-                        } else {
-                          selectedValues.add(option.value)
-                        }
-                        const filterValues = Array.from(selectedValues)
-                        column?.setFilterValue(
-                          filterValues.length ? filterValues : undefined
-                        )
-                      }}
-                    >
-                      <div
-                        className={cn(
-                          "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
-                          isSelected
-                            ? "bg-primary text-primary-foreground"
-                            : "opacity-50 [&_svg]:invisible"
-                        )}
-                      >
-                        <IconCheck className={cn("h-4 w-4")} />
-                      </div>
-                      {option.icon && (
-                        <option.icon className="mr-2 h-4 w-4 text-muted-foreground" />
-                      )}
-                      <span>{option.label}</span>
-                      {facets?.get(option.value) && (
-                        <span className="ml-auto flex h-4 w-4 items-center justify-center font-mono text-xs">
-                          {facets.get(option.value)}
-                        </span>
-                      )}
-                    </CommandItem>
-                  )
-                })}
-              </CommandGroup>
-              {selectedValues.size > 0 && (
-                <>
-                  <CommandSeparator />
-                  <CommandGroup>
-                    <CommandItem
-                      onSelect={() => column?.setFilterValue(undefined)}
-                      className="justify-center text-center"
-                    >
-                      Clear filters
-                    </CommandItem>
-                  </CommandGroup>
-                </>
-              )}
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
-    )
-  }
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  )
+}
 
 function ActionMenu({ project, clients, setData }: { project: ProjectWithClient, clients: Client[], setData: React.Dispatch<React.SetStateAction<ProjectWithClient[]>> }) {
-    const [, startTransition] = React.useTransition()
-    return (
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="h-8 w-8 p-0">
-                    <span className="sr-only">Open menu</span>
-                    <IconDots className="h-4 w-4" />
-                </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                <DropdownMenuItem onClick={() => navigator.clipboard.writeText(project.id)}>
-                    Copy project ID
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <ProjectFormDialog project={project} clients={clients} trigger={<DropdownMenuItem onSelect={(e) => e.preventDefault()}>Edit project</DropdownMenuItem>} />
-                <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                        <DropdownMenuItem className="text-red-600" onSelect={(e) => e.preventDefault()}>Delete project</DropdownMenuItem>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            This action cannot be undone. This will permanently delete this project.
-                        </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                <AlertDialogAction onClick={() => startTransition(() => deleteProject(project.id).then(() => getProjects().then(data => setData(data))))}>Continue</AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
-            </DropdownMenuContent>
-        </DropdownMenu>
-    )
+  const [, startTransition] = React.useTransition()
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" className="h-8 w-8 p-0">
+          <span className="sr-only">Open menu</span>
+          <IconDots className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+        <DropdownMenuItem onClick={() => navigator.clipboard.writeText(project.id)}>
+          Copy project ID
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <ProjectFormDialog project={project} clients={clients} trigger={<DropdownMenuItem onSelect={(e) => e.preventDefault()}>Edit project</DropdownMenuItem>} />
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <DropdownMenuItem className="text-red-600" onSelect={(e) => e.preventDefault()}>Delete project</DropdownMenuItem>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete this project.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={() => startTransition(() => deleteProject(project.id).then(() => getProjects().then(data => setData(data))))}>Continue</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
 }
 
 function ProjectFormDialog({ project, clients, trigger }: { project?: ProjectWithClient, clients: Client[], trigger?: React.ReactElement }) {
-    const [open, setOpen] = React.useState(false)
-    const [isPending, startTransition] = React.useTransition()
-    const [form, setForm] = React.useState({ 
-        name: project?.name || "", 
-        description: project?.description || "", 
-        status: project?.status || ProjectStatus.PLANNING, 
-        clientId: project?.clientId || "",
-        budget: project?.budget ? String(project.budget) : "0"
-    })
+  const [open, setOpen] = React.useState(false)
+  const [isPending, startTransition] = React.useTransition()
+  const [startDateOpen, setStartDateOpen] = React.useState(false)
+  const [endDateOpen, setEndDateOpen] = React.useState(false)
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-        const { id, value } = e.target
-        setForm({ ...form, [id]: value })
-    }
+  const [form, setForm] = React.useState({
+    name: project?.name || "",
+    description: project?.description || "",
+    status: project?.status || ProjectStatus.PLANNING,
+    clientId: project?.clientId || "",
+    budget: project?.budget ? String(project.budget) : "0",
+    startDate: project?.startDate ? new Date(project.startDate) : undefined,
+    endDate: project?.endDate ? new Date(project.endDate) : undefined,
+  })
 
-    const handleSelectChange = (id: string, value: string) => {
-        setForm({ ...form, [id]: value })
-    }
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { id, value } = e.target
+    setForm({ ...form, [id]: value })
+  }
 
-    const handleSubmit = () => {
-        startTransition(() => {
-            if (project) {
-                updateProject(project.id, {
-                    ...form
-                })
-            } else {
-                addProject({
-                    ...form
-                })
-            }
-            setOpen(false)
-        })
-    }
+  const handleSelectChange = (id: string, value: string) => {
+    setForm({ ...form, [id]: value })
+  }
 
-    return (
-        <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                {trigger || <Button>Add Project</Button>}
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
-                <DialogHeader>
-                    <DialogTitle>{project ? 'Edit Project' : 'Add Project'}</DialogTitle>
-                    <DialogDescription>
-                        {project ? 'Update the details of your project.' : 'Add a new project to your list.'}
-                    </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="name" className="text-right">Name</Label>
-                        <Input id="name" value={form.name} onChange={handleChange} className="col-span-3" />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="description" className="text-right">Description</Label>
-                        <Input id="description" value={form.description || ''} onChange={handleChange} className="col-span-3" />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="budget" className="text-right">Budget</Label>
-                        <Input id="budget" type="number" value={form.budget} onChange={handleChange} className="col-span-3" />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="clientId" className="text-right">Client</Label>
-                        <Select onValueChange={(value) => handleSelectChange("clientId", value)} defaultValue={form.clientId}>
-                            <SelectTrigger className="col-span-3">
-                                <SelectValue placeholder="Select a client" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="status" className="text-right">Status</Label>
-                        <Select onValueChange={(value) => handleSelectChange("status", value)} defaultValue={form.status}>
-                            <SelectTrigger className="col-span-3">
-                                <SelectValue placeholder="Select status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {statuses.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </div>
-                <DialogFooter>
-                    <Button type="submit" onClick={handleSubmit} disabled={isPending}>
-                        {isPending ? "Saving..." : "Save changes"}
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    )
+  const handleDateChange = (id: string, date: Date | undefined) => {
+    setForm({ ...form, [id]: date })
+  }
+
+  const handleSubmit = () => {
+    startTransition(() => {
+      const promise = project
+        ? updateProject(project.id, {
+            ...form,
+            startDate: form.startDate || null,
+            endDate: form.endDate || null,
+          })
+        : addProject({
+            ...form,
+            startDate: form.startDate || null,
+            endDate: form.endDate || null,
+          });
+
+      promise.then(() => {
+        setOpen(false);
+        toast.success(project ? "Project updated successfully." : "Project added successfully.");
+      }).catch((error) => {
+        toast.error(error.message);
+      });
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      {trigger ? <DialogTrigger asChild>{trigger}</DialogTrigger> : <DialogTrigger asChild><Button>Add Project</Button></DialogTrigger>}
+      <DialogContent className="sm:max-w-[600px]">
+        <DialogHeader>
+          <DialogTitle>{project ? "Edit Project" : "Add Project"}</DialogTitle>
+          <DialogDescription>
+            {project ? "Update the project details." : "Fill in the project details to add a new project."}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="grid gap-2">
+            <Label htmlFor="name">Name</Label>
+            <Input id="name" value={form.name} onChange={handleChange} placeholder="e.g. Website Redesign" />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="clientId">Client</Label>
+              <Select value={form.clientId} onValueChange={(value) => handleSelectChange("clientId", value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a client" />
+                </SelectTrigger>
+                <SelectContent>
+                  {clients.map((client) => (
+                    <SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="status">Status</Label>
+              <Select value={form.status} onValueChange={(value) => handleSelectChange("status", value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a status" />
+                </SelectTrigger>
+                <SelectContent>
+                  {statuses.map((status) => (
+                    <SelectItem key={status.value} value={status.value}>{status.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="description">Description</Label>
+            <Textarea id="description" value={form.description || ''} onChange={handleChange} placeholder="e.g. A brief description of the project." />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="startDate">Start Date</Label>
+              <Popover open={startDateOpen} onOpenChange={setStartDateOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !form.startDate && "text-muted-foreground")}>
+                    <IconCalendarTabler className="mr-2 h-4 w-4" />
+                    {form.startDate ? format(form.startDate, "PPP") : <span>Pick a date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar 
+                    mode="single" 
+                    selected={form.startDate} 
+                    onSelect={(date) => {
+                      handleDateChange("startDate", date)
+                      setStartDateOpen(false)
+                    }}
+                    initialFocus 
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="endDate">End Date</Label>
+              <Popover open={endDateOpen} onOpenChange={setEndDateOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !form.endDate && "text-muted-foreground")}>
+                    <IconCalendarTabler className="mr-2 h-4 w-4" />
+                    {form.endDate ? format(form.endDate, "PPP") : <span>Pick a date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar 
+                    mode="single" 
+                    selected={form.endDate} 
+                    onSelect={(date) => {
+                      handleDateChange("endDate", date)
+                      setEndDateOpen(false)
+                    }}
+                    initialFocus 
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="budget">Budget</Label>
+            <Input id="budget" type="number" value={form.budget} onChange={handleChange} placeholder="e.g. 5000" />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button onClick={handleSubmit} disabled={isPending}>{isPending ? "Saving..." : (project ? "Update Project" : "Add Project")}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
 }

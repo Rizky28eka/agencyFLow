@@ -27,6 +27,7 @@ model Organization {
   quotations  Quotation[]
   services    Service[]
   expenses    Expense[]
+  notifications Notification[]
 }
 
 model User {
@@ -44,6 +45,25 @@ model User {
   role         Role      @relation(fields: [roleId], references: [id])
 
   assignedTasks Task[]
+  notifications Notification[]
+}
+
+// ===================================================================
+// Notification Model
+// ===================================================================
+
+model Notification {
+  id        String   @id @default(cuid())
+  message   String
+  read      Boolean  @default(false)
+  link      String?
+  createdAt DateTime @default(now())
+
+  recipientId String
+  recipient   User     @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 }
 
 model Role {
@@ -124,6 +144,7 @@ model Task {
   status      TaskStatus @default(TO_DO)
   priority    Priority   @default(MEDIUM)
   dueDate     DateTime?
+  startDate   DateTime? // New field for task start date
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
@@ -132,6 +153,19 @@ model Task {
 
   assigneeId  String?
   assignee    User?      @relation(fields: [assigneeId], references: [id])
+
+  // New relations for task dependencies
+  dependenciesOn TaskDependency[] @relation("DependsOn")
+  dependentTasks TaskDependency[] @relation("DependentTasks")
+}
+
+model TaskDependency {
+  id           String   @id @default(cuid())
+  dependentId  String
+  dependent    Task     @relation("DependentTasks", fields: [dependentId], references: [id])
+  dependsOnId  String
+  dependsOn    Task     @relation("DependsOn", fields: [dependsOnId], references: [id])
+  createdAt    DateTime @default(now())
 }
 
 enum TaskStatus {

@@ -5,6 +5,7 @@ import { PrismaClient } from "@prisma/client"
 
 const prisma = new PrismaClient()
 
+// This function seems to be for the main expenses page, we'll leave it as is.
 export async function getExpenses() {
     const expenses = await prisma.expense.findMany({
         include: {
@@ -12,26 +13,11 @@ export async function getExpenses() {
         },
     })
     return expenses.map(expense => ({
-        id: expense.id,
-        description: expense.description,
+        ...expense,
         amount: expense.amount.toString(),
-        date: expense.date,
-        createdAt: expense.createdAt,
-        updatedAt: expense.updatedAt,
-        organizationId: expense.organizationId,
-        projectId: expense.projectId,
         project: {
-            id: expense.project.id,
-            name: expense.project.name,
-            description: expense.project.description,
-            status: expense.project.status,
+            ...expense.project,
             budget: expense.project.budget?.toString() ?? "0",
-            startDate: expense.project.startDate,
-            endDate: expense.project.endDate,
-            createdAt: expense.project.createdAt,
-            updatedAt: expense.project.updatedAt,
-            organizationId: expense.project.organizationId,
-            clientId: expense.project.clientId,
         },
     }))
 }
@@ -45,28 +31,48 @@ export async function getProjects() {
 }
 
 export async function addExpense(data: { description: string, amount: string, date: Date, projectId: string }) {
-    // In a real app, you'd get the organizationId from the user's session
     const organizationId = "cmf6tttw10000t46efkctz384";
+    
+    if (!data.description || !data.amount || !data.date || !data.projectId) {
+        throw new Error("Missing required fields");
+    }
+
     await prisma.expense.create({
         data: {
-            ...data,
+            description: data.description,
+            amount: parseFloat(data.amount),
+            date: data.date,
+            projectId: data.projectId,
             organizationId,
         },
-    })
-    revalidatePath("/internal/expenses")
+    });
+
+    revalidatePath(`/internal/projects/${data.projectId}`);
+    revalidatePath("/internal/expenses");
 }
 
-export async function updateExpense(id: string, data: { description: string, amount: string, date: Date, projectId: string }) {
+export async function updateExpense(id: string, projectId: string, data: { description: string, amount: string, date: Date }) {
+    if (!data.description || !data.amount || !data.date) {
+        throw new Error("Missing required fields");
+    }
+
     await prisma.expense.update({
         where: { id },
-        data,
-    })
-    revalidatePath("/internal/expenses")
+        data: {
+            description: data.description,
+            amount: parseFloat(data.amount),
+            date: data.date,
+        },
+    });
+
+    revalidatePath(`/internal/projects/${projectId}`);
+    revalidatePath("/internal/expenses");
 }
 
-export async function deleteExpense(id: string) {
+export async function deleteExpense(id: string, projectId: string) {
     await prisma.expense.delete({
         where: { id },
-    })
-    revalidatePath("/internal/expenses")
+    });
+    revalidatePath(`/internal/projects/${projectId}`);
+    revalidatePath("/internal/expenses");
 }
