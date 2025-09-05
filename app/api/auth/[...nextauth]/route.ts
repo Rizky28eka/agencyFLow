@@ -49,6 +49,10 @@ export const authOptions: AuthOptions = {
                         if ('organizationId' in user && typeof user.organizationId === 'string') {
                 token.organizationId = user.organizationId;
             }
+            // Add role to token
+            if (user && 'role' in user && user.role && typeof user.role === 'object' && 'name' in user.role && typeof user.role.name === 'string') {
+                token.role = user.role.name;
+            }
         }
         return token;
     },
@@ -56,6 +60,8 @@ export const authOptions: AuthOptions = {
         if (session.user) {
             (session.user as { id: string }).id = token.id as string;
             (session.user as { organizationId: string }).organizationId = token.organizationId as string;
+            // Add role to session.user
+            (session.user as { role: string }).role = token.role as string;
         }
         return session;
     },

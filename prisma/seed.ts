@@ -1,43 +1,93 @@
-import { PrismaClient, UserRole } from '@prisma/client'
+import { PrismaClient } from '@prisma/client';
+import * as bcrypt from 'bcryptjs';
 
-const prisma = new PrismaClient()
+const prisma = new PrismaClient();
 
 async function main() {
-  const org = await prisma.organization.create({
-    data: {
-      name: 'My Agency',
+  console.log('Start seeding...');
+
+  // Create roles if they don't exist
+  const adminRole = await prisma.role.upsert({
+    where: { name: 'ADMIN' },
+    update: {},
+    create: { name: 'ADMIN' },
+  });
+  const projectManagerRole = await prisma.role.upsert({
+    where: { name: 'PROJECT_MANAGER' },
+    update: {},
+    create: { name: 'PROJECT_MANAGER' },
+  });
+  const memberRole = await prisma.role.upsert({
+    where: { name: 'MEMBER' },
+    update: {},
+    create: { name: 'MEMBER' },
+  });
+  const clientRole = await prisma.role.upsert({
+    where: { name: 'CLIENT' },
+    update: {},
+    create: { name: 'CLIENT' },
+  });
+
+  // Create a default organization if it doesn't exist
+  const defaultOrganization = await prisma.organization.upsert({
+    where: { id: 'cmf6tttw10000t46efkctz384' }, // Use the hardcoded ID from addProject
+    update: {},
+    create: {
+      id: 'cmf6tttw10000t46efkctz384',
+      name: 'Default Agency',
     },
-  })
+  });
 
-  console.log(`Created organization: ${org.name} (ID: ${org.id})`)
+  // Create 3 admin users for the default organization
+  const hashedPassword1 = await bcrypt.hash('password123', 10);
+  const hashedPassword2 = await bcrypt.hash('password123', 10);
+  const hashedPassword3 = await bcrypt.hash('password123', 10);
 
-  const adminRole = await prisma.role.create({
-    data: {
-      name: UserRole.ADMIN,
-    },
-  })
-
-  console.log(`Created role: ${adminRole.name}`)
-
-  const user = await prisma.user.create({
-    data: {
-      email: 'admin@agencyflow.com',
-      name: 'Admin User',
-      passwordHash: 'password', // In a real app, this should be a proper hash
-      organizationId: org.id,
+  const admin1 = await prisma.user.upsert({
+    where: { email: 'admin1@agencyflow.com' },
+    update: {},
+    create: {
+      email: 'admin1@agencyflow.com',
+      name: 'Admin One',
+      passwordHash: hashedPassword1,
       roleId: adminRole.id,
+      organizationId: defaultOrganization.id,
     },
-  })
+  });
 
-  console.log(`Created user: ${user.name} (Email: ${user.email})`)
+  const admin2 = await prisma.user.upsert({
+    where: { email: 'admin2@agencyflow.com' },
+    update: {},
+    create: {
+      email: 'admin2@agencyflow.com',
+      name: 'Admin Two',
+      passwordHash: hashedPassword2,
+      roleId: adminRole.id,
+      organizationId: defaultOrganization.id,
+    },
+  });
+
+  const admin3 = await prisma.user.upsert({
+    where: { email: 'admin3@agencyflow.com' },
+    update: {},
+    create: {
+      email: 'admin3@agencyflow.com',
+      name: 'Admin Three',
+      passwordHash: hashedPassword3,
+      roleId: adminRole.id,
+      organizationId: defaultOrganization.id,
+    },
+  });
+
+  console.log({ admin1, admin2, admin3 });
+  console.log('Seeding finished.');
 }
 
 main()
-  .then(async () => {
-    await prisma.$disconnect()
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
   })
-  .catch(async (e) => {
-    console.error(e)
-    await prisma.$disconnect()
-    process.exit(1)
-  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

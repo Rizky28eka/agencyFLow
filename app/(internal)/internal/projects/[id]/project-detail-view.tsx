@@ -100,6 +100,7 @@ function FileActions({ file, projectId, onSuccess }: FileActionsProps) {
       </AlertDialogContent>
     </AlertDialog>
   );
+  
 }
 
 

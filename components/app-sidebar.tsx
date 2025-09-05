@@ -75,6 +75,11 @@ const navItemsAdmin = [
     url: "/internal/analytics",
     icon: IconChartBar,
   },
+  {
+    title: "Users",
+    url: "/internal/users",
+    icon: IconUsers,
+  },
 ]
 
 const navItemsClient = [

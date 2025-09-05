@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache"
 import { PrismaClient, ProjectStatus, Prisma } from "@prisma/client"
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
 const prisma = new PrismaClient()
 
@@ -13,8 +15,24 @@ export type Expense = Prisma.ExpenseGetPayload<object>;
 export type File = Prisma.FileGetPayload<object>;
 export type Client = Prisma.ClientGetPayload<object>;
 
+async function getCurrentUser() {
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user?.id || !session.user?.organizationId) {
+        return null;
+    }
+    return session.user;
+}
+
 export async function getProjects() {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+        return [];
+    }
+
     const projects = await prisma.project.findMany({
+        where: {
+            organizationId: currentUser.organizationId,
+        },
         include: {
             client: true,
         },
@@ -46,12 +64,25 @@ export async function getProjects() {
 }
 
 export async function getClients() {
-    return await prisma.client.findMany()
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+        return [];
+    }
+    return await prisma.client.findMany({
+        where: {
+            organizationId: currentUser.organizationId,
+        },
+    });
 }
 
 export async function getProjectById(id: string) {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+        return null;
+    }
+
     const project = await prisma.project.findUnique({
-        where: { id },
+        where: { id, organizationId: currentUser.organizationId },
         include: {
             client: true,
             tasks: {
@@ -87,8 +118,10 @@ export async function getProjectById(id: string) {
 }
 
 export async function addProject(data: { name: string, description: string, status: ProjectStatus, clientId: string, budget: string, startDate: Date | null, endDate: Date | null }) {
-    // In a real app, you'd get the organizationId from the user's session
-    const organizationId = "cmf6tttw10000t46efkctz384";
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+        throw new Error("User not authenticated.");
+    }
 
     if (!data.clientId) {
         throw new Error("Client is required.");
@@ -103,14 +136,18 @@ export async function addProject(data: { name: string, description: string, stat
             budget: parseFloat(data.budget),
             startDate: data.startDate,
             endDate: data.endDate,
-            organizationId,
+            organizationId: currentUser.organizationId,
         },
     })
     revalidatePath("/internal/projects")
 }
 
 export async function updateProject(id: string, data: { name: string, description: string, status: ProjectStatus, clientId: string, budget: string, startDate: Date | null, endDate: Date | null }) {
-    
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+        throw new Error("User not authenticated.");
+    }
+
     if (!data.clientId) {
         throw new Error("Client is required.");
     }
@@ -121,19 +158,32 @@ export async function updateProject(id: string, data: { name: string, descriptio
     }
     
     await prisma.project.update({
-        where: { id },
+        where: { id, organizationId: currentUser.organizationId },
         data: dataWithNumberBudget,
     })
     revalidatePath("/internal/projects")
 }
 
 export async function deleteProject(id: string) {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+        throw new Error("User not authenticated.");
+    }
+
     await prisma.project.delete({
-        where: { id },
+        where: { id, organizationId: currentUser.organizationId },
     })
     revalidatePath("/internal/projects")
 }
 
 export async function getUsers() {
-    return await prisma.user.findMany();
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+        return [];
+    }
+    return await prisma.user.findMany({
+        where: {
+            organizationId: currentUser.organizationId,
+        },
+    });
 }
