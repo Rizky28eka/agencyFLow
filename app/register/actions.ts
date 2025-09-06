@@ -13,6 +13,11 @@ export async function registerUser(prevState: { success: boolean; message: strin
         return { success: false, message: "All fields are required." };
     }
 
+    // Basic password strength check (e.g., minimum length)
+    if (password.length < 8) {
+        return { success: false, message: "Password must be at least 8 characters long." };
+    }
+
     try {
         const existingUser = await prisma.user.findUnique({
             where: { email },
@@ -24,22 +29,46 @@ export async function registerUser(prevState: { success: boolean; message: strin
 
         const passwordHash = await bcrypt.hash(password, 10);
 
-        // Find the first organization to assign the user to.
-        // In a real multi-tenant app, this would be handled differently (e.g., via invitation).
-        const organization = await prisma.organization.findFirst();
-        if (!organization) {
-            return { success: false, message: "No organization found to assign the user to." };
-        }
+        let organizationId: string;
+        let roleId: string;
 
-        // Find or create the MEMBER role
-        let memberRole = await prisma.role.findUnique({
-            where: { name: UserRole.MEMBER },
-        });
+        // Check if any organization exists
+        const existingOrganization = await prisma.organization.findFirst();
 
-        if (!memberRole) {
-            memberRole = await prisma.role.create({
-                data: { name: UserRole.MEMBER },
+        if (!existingOrganization) {
+            // If no organization exists, create a new one and assign the user as ADMIN
+            const newOrganization = await prisma.organization.create({
+                data: {
+                    name: `${name}'s Organization`, // Default name for the first organization
+                },
             });
+            organizationId = newOrganization.id;
+
+            let adminRole = await prisma.role.findUnique({
+                where: { name: UserRole.ADMIN },
+            });
+
+            if (!adminRole) {
+                adminRole = await prisma.role.create({
+                    data: { name: UserRole.ADMIN },
+                });
+            }
+            roleId = adminRole.id;
+
+        } else {
+            // If organizations exist, assign to the first one found and MEMBER role
+            organizationId = existingOrganization.id;
+
+            let memberRole = await prisma.role.findUnique({
+                where: { name: UserRole.MEMBER },
+            });
+
+            if (!memberRole) {
+                memberRole = await prisma.role.create({
+                    data: { name: UserRole.MEMBER },
+                });
+            }
+            roleId = memberRole.id;
         }
 
         await prisma.user.create({
@@ -47,8 +76,8 @@ export async function registerUser(prevState: { success: boolean; message: strin
                 name,
                 email,
                 passwordHash,
-                organizationId: organization.id,
-                roleId: memberRole.id,
+                organizationId,
+                roleId,
             },
         });
 

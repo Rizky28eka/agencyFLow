@@ -58,7 +58,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { getProjects, getClients, addProject, updateProject, deleteProject, Project, Client } from "./actions"
+import { getProjects, addProject, updateProject, deleteProject, Project } from "./actions"
+import { getClientsForSelection } from "../clients/actions"
 
 enum ProjectStatus {
   PLANNING = "PLANNING",
@@ -74,7 +75,7 @@ import { toast } from "sonner"
 
 const statuses = Object.values(ProjectStatus).map(status => ({ value: status, label: status.replace("_", " ") }))
 
-type ProjectWithClient = Omit<Project, 'budget'> & { budget: string; client: Client; totalExpenses: string; profitability: string; }
+type ProjectWithClient = Omit<Project, 'budget'> & { budget: string; client: { id: string; name: string; }; totalExpenses: string; profitability: string; }
 
 const currencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -83,13 +84,13 @@ const currencyFormatter = new Intl.NumberFormat('en-US', {
 
 export default function ProjectsPage() {
   const [data, setData] = React.useState<ProjectWithClient[]>([])
-  const [clients, setClients] = React.useState<Client[]>([])
+  const [clients, setClients] = React.useState<{ id: string; name: string; }[]>([])
   const [, startTransition] = React.useTransition()
 
   React.useEffect(() => {
     startTransition(() => {
       getProjects().then(data => setData(data))
-      getClients().then(setClients)
+      getClientsForSelection().then(setClients)
     })
   }, [])
 
@@ -389,8 +390,7 @@ function DataTableFacetedFilter<TData, TValue>({
           <IconPlus className="mr-2 h-4 w-4" />
           {title}
           {selectedValues?.size > 0 && (
-            <>
-              <Separator orientation="vertical" className="mx-2 h-4" />
+            <>              <Separator orientation="vertical" className="mx-2 h-4" />
               <Badge
                 variant="secondary"
                 className="rounded-sm px-1 font-normal lg:hidden"
@@ -489,7 +489,7 @@ function DataTableFacetedFilter<TData, TValue>({
   )
 }
 
-function ActionMenu({ project, clients, setData }: { project: ProjectWithClient, clients: Client[], setData: React.Dispatch<React.SetStateAction<ProjectWithClient[]>> }) {
+function ActionMenu({ project, clients, setData }: { project: ProjectWithClient, clients: { id: string; name: string; }[], setData: React.Dispatch<React.SetStateAction<ProjectWithClient[]>> }) {
   const [, startTransition] = React.useTransition()
   return (
     <DropdownMenu>
@@ -528,7 +528,7 @@ function ActionMenu({ project, clients, setData }: { project: ProjectWithClient,
   )
 }
 
-function ProjectFormDialog({ project, clients, trigger }: { project?: ProjectWithClient, clients: Client[], trigger?: React.ReactElement }) {
+function ProjectFormDialog({ project, clients, trigger }: { project?: ProjectWithClient, clients: { id: string; name: string; }[], trigger?: React.ReactElement }) {
   const [open, setOpen] = React.useState(false)
   const [isPending, startTransition] = React.useTransition()
   const [startDateOpen, setStartDateOpen] = React.useState(false)

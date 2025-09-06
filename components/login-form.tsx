@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,10 +12,11 @@ export function LoginForm({
   className,
   ...props
 }: React.ComponentProps<"form">) {
-  const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl") || "/internal/dashboard";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(searchParams.get("error"));
   const [isPending, setIsPending] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -23,18 +24,22 @@ export function LoginForm({
     setError(null);
     setIsPending(true);
 
-    const result = await signIn("credentials", {
-      redirect: false,
-      email,
-      password,
-    });
+    try {
+      const result = await signIn("credentials", {
+        email,
+        password,
+        callbackUrl,
+      });
 
-    setIsPending(false);
-
-    if (result?.error) {
-      setError(result.error === 'CredentialsSignin' ? "Invalid email or password" : "An unexpected error occurred.");
-    } else {
-      router.push("/internal/dashboard");
+      // This point is not reached on successful sign-in because of the redirect.
+      if (result?.error) {
+        setError(result.error === 'CredentialsSignin' ? "Invalid email or password" : "An unexpected error occurred.");
+      }
+    } catch (error) {
+        console.error("Sign-in error", error);
+        setError("An unexpected error occurred.");
+    } finally {
+        setIsPending(false);
     }
   };
 

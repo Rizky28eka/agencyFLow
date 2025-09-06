@@ -35,6 +35,8 @@ enum Priority {
 const statuses = Object.values(TaskStatus).map(status => ({ value: status, label: status.replace("_", " ") }))
 const priorities = Object.values(Priority)
 
+const UNASSIGNED_VALUE = "UNASSIGNED";
+
 type TaskFormDialogProps = {
   projectId: string;
   task?: Task;
@@ -54,7 +56,7 @@ export function TaskFormDialog({ projectId, task, trigger, onSuccess, users }: T
     status: task?.status || TaskStatus.TO_DO,
     priority: task?.priority || Priority.MEDIUM,
     dueDate: task?.dueDate ? new Date(task.dueDate) : undefined,
-    assigneeId: task?.assigneeId || "", // Add assigneeId
+    assigneeId: task?.assigneeId || UNASSIGNED_VALUE, // Default to UNASSIGNED_VALUE
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -74,7 +76,7 @@ export function TaskFormDialog({ projectId, task, trigger, onSuccess, users }: T
     startTransition(() => {
       const dataToSubmit = {
         ...form,
-        assigneeId: form.assigneeId === "" ? null : form.assigneeId, // Convert empty string to null for optional field
+        assigneeId: form.assigneeId === UNASSIGNED_VALUE ? null : form.assigneeId, // Convert UNASSIGNED_VALUE to null
         dueDate: form.dueDate || null, // Convert undefined to null for optional field
       };
 
@@ -138,7 +140,7 @@ export function TaskFormDialog({ projectId, task, trigger, onSuccess, users }: T
             <Select value={form.assigneeId} onValueChange={(value) => handleSelectChange("assigneeId", value)}>
               <SelectTrigger><SelectValue placeholder="Select an assignee" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Unassigned</SelectItem> {/* Option for unassigned */}
+                <SelectItem value={UNASSIGNED_VALUE}>Unassigned</SelectItem> {/* Option for unassigned */}
                 {users.map((user) => <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>)}
               </SelectContent>
             </Select>

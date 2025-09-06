@@ -1,12 +1,35 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { PrismaClient, InvoiceStatus } from "@prisma/client"
+import { prisma } from "@/lib/db";
+import { InvoiceStatus } from "@prisma/client"
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { isManager } from "@/lib/permissions";
 
-const prisma = new PrismaClient()
+async function getAuthenticatedUser() {
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user?.id || !session.user.organizationId || !session.user.role) {
+        throw new Error("Unauthorized: User not authenticated.");
+    }
+    const user = await prisma.user.findUnique({ 
+        where: { id: session.user.id },
+        include: { role: true }
+    });
+    if (!user) {
+        throw new Error("Unauthorized: User not found.");
+    }
+    return user;
+}
 
 export async function getInvoices() {
+    const user = await getAuthenticatedUser();
+    if (!isManager(user)) {
+        throw new Error("Unauthorized: Only managers can view invoices.");
+    }
+
     const invoices = await prisma.invoice.findMany({
+        where: { organizationId: user.organizationId },
         include: {
             client: true,
             project: true,
@@ -43,11 +66,23 @@ export async function getInvoices() {
 }
 
 export async function getClients() {
-    return await prisma.client.findMany()
+    const user = await getAuthenticatedUser();
+    if (!isManager(user)) {
+        throw new Error("Unauthorized: Only managers can view clients.");
+    }
+    return await prisma.client.findMany({
+        where: { organizationId: user.organizationId }
+    });
 }
 
 export async function getProjects() {
-    const projects = await prisma.project.findMany()
+    const user = await getAuthenticatedUser();
+    if (!isManager(user)) {
+        throw new Error("Unauthorized: Only managers can view projects.");
+    }
+    const projects = await prisma.project.findMany({
+        where: { organizationId: user.organizationId }
+    })
     return projects.map(project => ({
         ...project,
         budget: project.budget?.toString() ?? "0",
@@ -55,28 +90,38 @@ export async function getProjects() {
 }
 
 export async function addInvoice(data: { invoiceNumber: string, totalAmount: string, status: InvoiceStatus, clientId: string, projectId: string, issueDate: Date, dueDate: Date }) {
-    // In a real app, you'd get the organizationId from the user's session
-    const organizationId = "cmf6tttw10000t46efkctz384";
+    const user = await getAuthenticatedUser();
+    if (!isManager(user)) {
+        throw new Error("Unauthorized: Only managers can add invoices.");
+    }
     await prisma.invoice.create({
         data: {
             ...data,
-            organizationId,
+            organizationId: user.organizationId,
         },
     })
     revalidatePath("/internal/invoices")
 }
 
 export async function updateInvoice(id: string, data: { invoiceNumber: string, totalAmount: string, status: InvoiceStatus, clientId: string, projectId: string, issueDate: Date, dueDate: Date }) {
+    const user = await getAuthenticatedUser();
+    if (!isManager(user)) {
+        throw new Error("Unauthorized: Only managers can update invoices.");
+    }
     await prisma.invoice.update({
-        where: { id },
+        where: { id, organizationId: user.organizationId },
         data,
     })
     revalidatePath("/internal/invoices")
 }
 
 export async function deleteInvoice(id: string) {
+    const user = await getAuthenticatedUser();
+    if (!isManager(user)) {
+        throw new Error("Unauthorized: Only managers can delete invoices.");
+    }
     await prisma.invoice.delete({
-        where: { id },
+        where: { id, organizationId: user.organizationId },
     })
     revalidatePath("/internal/invoices")
 }

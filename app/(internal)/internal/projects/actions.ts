@@ -1,11 +1,11 @@
-"use server"
+'use server'
 
 import { revalidatePath } from "next/cache"
-import { PrismaClient, ProjectStatus, Prisma } from "@prisma/client"
+import { prisma } from "@/lib/db";
+import { ProjectStatus, Prisma } from "@prisma/client"
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-
-const prisma = new PrismaClient()
+import { isManager } from "@/lib/permissions";
 
 export type Project = Prisma.ProjectGetPayload<object>;
 export type Task = Prisma.TaskGetPayload<object>;
@@ -15,23 +15,30 @@ export type Expense = Prisma.ExpenseGetPayload<object>;
 export type File = Prisma.FileGetPayload<object>;
 export type Client = Prisma.ClientGetPayload<object>;
 
-async function getCurrentUser() {
+async function getAuthenticatedUser() {
     const session = await getServerSession(authOptions);
-    if (!session || !session.user?.id || !session.user?.organizationId) {
-        return null;
+    if (!session || !session.user?.id || !session.user.organizationId || !session.user.role) {
+        throw new Error("Unauthorized: User not authenticated.");
     }
-    return session.user;
+    const user = await prisma.user.findUnique({ 
+        where: { id: session.user.id },
+        include: { role: true }
+    });
+    if (!user) {
+        throw new Error("Unauthorized: User not found.");
+    }
+    return user;
 }
 
 export async function getProjects() {
-    const currentUser = await getCurrentUser();
-    if (!currentUser) {
-        return [];
+    const user = await getAuthenticatedUser();
+    if (!isManager(user)) {
+        throw new Error("Unauthorized: You do not have permission to view projects.");
     }
 
     const projects = await prisma.project.findMany({
         where: {
-            organizationId: currentUser.organizationId,
+            organizationId: user.organizationId,
         },
         include: {
             client: true,
@@ -63,26 +70,14 @@ export async function getProjects() {
     });
 }
 
-export async function getClients() {
-    const currentUser = await getCurrentUser();
-    if (!currentUser) {
-        return [];
-    }
-    return await prisma.client.findMany({
-        where: {
-            organizationId: currentUser.organizationId,
-        },
-    });
-}
-
 export async function getProjectById(id: string) {
-    const currentUser = await getCurrentUser();
-    if (!currentUser) {
-        return null;
+    const user = await getAuthenticatedUser();
+    if (!isManager(user)) {
+        throw new Error("Unauthorized: You do not have permission to view this project.");
     }
 
     const project = await prisma.project.findUnique({
-        where: { id, organizationId: currentUser.organizationId },
+        where: { id, organizationId: user.organizationId },
         include: {
             client: true,
             tasks: {
@@ -118,9 +113,9 @@ export async function getProjectById(id: string) {
 }
 
 export async function addProject(data: { name: string, description: string, status: ProjectStatus, clientId: string, budget: string, startDate: Date | null, endDate: Date | null }) {
-    const currentUser = await getCurrentUser();
-    if (!currentUser) {
-        throw new Error("User not authenticated.");
+    const user = await getAuthenticatedUser();
+    if (!isManager(user)) {
+        throw new Error("Unauthorized: You do not have permission to add projects.");
     }
 
     if (!data.clientId) {
@@ -136,16 +131,16 @@ export async function addProject(data: { name: string, description: string, stat
             budget: parseFloat(data.budget),
             startDate: data.startDate,
             endDate: data.endDate,
-            organizationId: currentUser.organizationId,
+            organizationId: user.organizationId,
         },
     })
     revalidatePath("/internal/projects")
 }
 
 export async function updateProject(id: string, data: { name: string, description: string, status: ProjectStatus, clientId: string, budget: string, startDate: Date | null, endDate: Date | null }) {
-    const currentUser = await getCurrentUser();
-    if (!currentUser) {
-        throw new Error("User not authenticated.");
+    const user = await getAuthenticatedUser();
+    if (!isManager(user)) {
+        throw new Error("Unauthorized: You do not have permission to update projects.");
     }
 
     if (!data.clientId) {
@@ -158,32 +153,48 @@ export async function updateProject(id: string, data: { name: string, descriptio
     }
     
     await prisma.project.update({
-        where: { id, organizationId: currentUser.organizationId },
+        where: { id, organizationId: user.organizationId },
         data: dataWithNumberBudget,
     })
     revalidatePath("/internal/projects")
 }
 
 export async function deleteProject(id: string) {
-    const currentUser = await getCurrentUser();
-    if (!currentUser) {
-        throw new Error("User not authenticated.");
+    const user = await getAuthenticatedUser();
+    if (!isManager(user)) {
+        throw new Error("Unauthorized: You do not have permission to delete projects.");
     }
 
     await prisma.project.delete({
-        where: { id, organizationId: currentUser.organizationId },
+        where: { id, organizationId: user.organizationId },
     })
     revalidatePath("/internal/projects")
 }
 
-export async function getUsers() {
-    const currentUser = await getCurrentUser();
-    if (!currentUser) {
+// --- Function for populating select dropdowns ---
+export async function getProjectsForSelection(): Promise<{ id: string; name: string; }[]> {
+    const user = await getAuthenticatedUser();
+    if (!isManager(user)) {
+        return []; // Return empty array if not authenticated
+    }
+
+    try {
+        const projects = await prisma.project.findMany({
+            where: {
+                organizationId: user.organizationId,
+                status: { in: ['PLANNING', 'ON_GOING'] } // Only show active projects
+            },
+            select: {
+                id: true,
+                name: true,
+            },
+            orderBy: {
+                name: 'asc',
+            },
+        });
+        return projects;
+    } catch (error) {
+        console.error("Failed to fetch projects for selection:", error);
         return [];
     }
-    return await prisma.user.findMany({
-        where: {
-            organizationId: currentUser.organizationId,
-        },
-    });
 }

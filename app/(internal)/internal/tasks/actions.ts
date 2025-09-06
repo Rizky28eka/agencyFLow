@@ -5,9 +5,73 @@ import { prisma } from "@/lib/db";
 import { TaskStatus, Priority, Prisma } from "@prisma/client";
 import { createNotification } from "../notifications/actions";
 import { createActivity } from "../activities/actions"; // Import createActivity
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { isManager } from "@/lib/permissions";
 
 export type Task = Prisma.TaskGetPayload<object>;
 export type User = Prisma.UserGetPayload<object>;
+
+export type TaskWithRelations = Prisma.TaskGetPayload<{
+  include: {
+    project: {
+      select: {
+        name: true;
+      };
+    };
+    assignee: {
+      select: {
+        name: true;
+      };
+    };
+  };
+}>;
+
+async function getAuthenticatedUser() {
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user?.id || !session.user.organizationId || !session.user.role) {
+        throw new Error("Unauthorized: User not authenticated.");
+    }
+    const user = await prisma.user.findUnique({ 
+        where: { id: session.user.id },
+        include: { role: true }
+    });
+    if (!user) {
+        throw new Error("Unauthorized: User not found.");
+    }
+    return user;
+}
+
+export async function getTasks() {
+  const user = await getAuthenticatedUser();
+  if (!isManager(user)) {
+    throw new Error("Unauthorized: You do not have permission to view tasks.");
+  }
+
+  const tasks = await prisma.task.findMany({
+    where: {
+      project: {
+        organizationId: user.organizationId,
+      },
+    },
+    include: {
+      project: {
+        select: {
+          name: true,
+        },
+      },
+      assignee: {
+        select: {
+          name: true,
+        },
+      },
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+  return tasks;
+}
 
 export async function addTask(data: {
   title: string;
@@ -18,6 +82,11 @@ export async function addTask(data: {
   projectId: string;
   assigneeId?: string | null;
 }) {
+  const user = await getAuthenticatedUser();
+  if (!isManager(user)) {
+    throw new Error("Unauthorized: Only managers can add tasks.");
+  }
+
   const task = await prisma.task.create({
     data: {
       ...data,
@@ -62,6 +131,11 @@ export async function updateTask(
     assigneeId?: string | null;
   }
 ) {
+  const user = await getAuthenticatedUser();
+  if (!isManager(user)) {
+    throw new Error("Unauthorized: Only managers can update tasks.");
+  }
+
   const existingTask = await prisma.task.findUnique({
     where: { id },
     select: { assigneeId: true, title: true, projectId: true },
@@ -104,6 +178,11 @@ export async function updateTask(
 }
 
 export async function deleteTask(id: string, projectId: string) {
+  const user = await getAuthenticatedUser();
+  if (!isManager(user)) {
+    throw new Error("Unauthorized: Only managers can delete tasks.");
+  }
+
   const deletedTask = await prisma.task.delete({
     where: { id },
   });
@@ -122,6 +201,11 @@ export async function addTaskDependency(
   dependentId: string,
   dependsOnId: string
 ) {
+  const user = await getAuthenticatedUser();
+  if (!isManager(user)) {
+    throw new Error("Unauthorized: Only managers can add task dependencies.");
+  }
+
   await prisma.taskDependency.create({
     data: {
       dependentId,
@@ -133,6 +217,11 @@ export async function addTaskDependency(
 }
 
 export async function removeTaskDependency(id: string) {
+  const user = await getAuthenticatedUser();
+  if (!isManager(user)) {
+    throw new Error("Unauthorized: Only managers can remove task dependencies.");
+  }
+
   await prisma.taskDependency.delete({
     where: { id },
   });

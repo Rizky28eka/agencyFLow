@@ -8,13 +8,21 @@ import path from 'path';
 import fs from 'fs/promises';
 import { v4 as uuidv4 } from 'uuid';
 import { createActivity } from "../activities/actions"; // Import createActivity
+import { isManager } from "@/lib/permissions";
 
-async function getCurrentUser() {
+async function getAuthenticatedUser() {
     const session = await getServerSession(authOptions);
-    if (!session || !session.user?.id) {
-        return null;
+    if (!session || !session.user?.id || !session.user.organizationId || !session.user.role) {
+        throw new Error("Unauthorized: User not authenticated.");
     }
-    return session.user;
+    const user = await prisma.user.findUnique({ 
+        where: { id: session.user.id },
+        include: { role: true }
+    });
+    if (!user) {
+        throw new Error("Unauthorized: User not found.");
+    }
+    return user;
 }
 
 const UPLOAD_DIR = path.join(process.cwd(), 'public', 'uploads');
@@ -30,10 +38,7 @@ async function ensureUploadDir() {
 }
 
 export async function uploadFile(prevState: { success: boolean; message: string; }, formData: FormData) {
-    const currentUser = await getCurrentUser();
-    if (!currentUser) {
-        return { success: false, message: "User not authenticated." };
-    }
+    const user = await getAuthenticatedUser();
 
     const file = formData.get('file') as File;
     const projectId = formData.get('projectId') as string;
@@ -66,8 +71,8 @@ export async function uploadFile(prevState: { success: boolean; message: string;
                 fileType: file.type,
                 size: file.size,
                 projectId: projectId,
-                uploadedById: currentUser.id,
-                organizationId: currentUser.organizationId,
+                uploadedById: user.id,
+                organizationId: user.organizationId,
             },
         });
 
@@ -87,18 +92,18 @@ export async function uploadFile(prevState: { success: boolean; message: string;
 }
 
 export async function deleteFile(fileId: string, projectId: string) {
-    const currentUser = await getCurrentUser();
-    if (!currentUser) {
-        return { success: false, message: "User not authenticated." };
+    const user = await getAuthenticatedUser();
+    if (!isManager(user)) { // Only managers can delete files for now
+        return { success: false, message: "Unauthorized: You do not have permission to delete files." };
     }
 
     try {
         const fileRecord = await prisma.file.findUnique({
-            where: { id: fileId },
+            where: { id: fileId, organizationId: user.organizationId },
         });
 
         if (!fileRecord) {
-            return { success: false, message: "File not found." };
+            return { success: false, message: "File not found or you do not have permission to delete it." };
         }
 
         // Delete file from file system
@@ -126,16 +131,13 @@ export async function deleteFile(fileId: string, projectId: string) {
 }
 
 export async function getProjectFiles(projectId: string) {
-    const currentUser = await getCurrentUser();
-    if (!currentUser) {
-        return [];
-    }
+    const user = await getAuthenticatedUser();
 
     try {
         const files = await prisma.file.findMany({
             where: {
                 projectId: projectId,
-                organizationId: currentUser.organizationId,
+                organizationId: user.organizationId,
             },
             include: {
                 uploadedBy: {

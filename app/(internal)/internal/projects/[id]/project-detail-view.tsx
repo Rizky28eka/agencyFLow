@@ -3,12 +3,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { IconArrowLeft, IconUser, IconCash, IconReceipt2, IconChecklist, IconClock, IconFile, IconDownload, IconDots, IconTrash, IconActivity } from "@tabler/icons-react";
+import { IconArrowLeft, IconUser, IconCash, IconReceipt2, IconChecklist, IconClock, IconFile, IconDownload, IconDots, IconTrash, IconActivity, IconEdit } from "@tabler/icons-react";
 import Link from "next/link";
 import { ExpenseFormDialog, ExpenseActions } from "../../expenses/expense-form-dialog";
 import { TaskFormDialog, TaskActions } from "../../tasks/task-form-dialog";
 import { TimeEntryFormDialog, TimeEntryActions } from "../../time-entries/time-entry-form-dialog";
-import { Project, Task, User, Expense, File, Client } from '../../projects/actions';
+import { Project, Task, User, Expense, File, Client, updateProject } from '../../projects/actions';
 import { uploadFile, deleteFile } from '../../files/actions';
 import { Activity } from '../../activities/actions';
 import { format } from "date-fns";
@@ -19,6 +19,8 @@ import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import ReactMarkdown from 'react-markdown';
+import { Textarea } from '@/components/ui/textarea';
 
 
 type SanitizedExpense = Omit<Expense, 'amount'> & { amount: string };
@@ -107,15 +109,37 @@ function FileActions({ file, projectId, onSuccess }: FileActionsProps) {
 type ActivityWithUser = Activity & { user: { name: string | null } };
 
 export function ProjectDetailView({ project, users, timeEntries, activities }: { project: ProjectDetailProps, users: UserListProps, timeEntries: TimeEntryWithRelations[], activities: ActivityWithUser[] }) {
-  // Move hooks above conditional return
   const [fileUploadState, fileUploadAction] = useActionState(uploadFile, { success: false, message: "" });
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [isEditingDescription, setIsEditingDescription] = React.useState(false);
+  const [description, setDescription] = React.useState(project?.description || "");
+
+  const handleSaveDescription = async () => {
+    if (!project) return;
+    try {
+      const projectDataForUpdate = {
+        name: project.name,
+        description: description,
+        status: project.status,
+        clientId: project.clientId,
+        budget: project.budget.toString(),
+        startDate: project.startDate ? new Date(project.startDate) : null,
+        endDate: project.endDate ? new Date(project.endDate) : null,
+      };
+      await updateProject(project.id, projectDataForUpdate);
+      toast.success("Project description updated.");
+      setIsEditingDescription(false);
+    } catch (error) {
+      toast.error("Failed to update description.");
+      console.error(error);
+    }
+  };
 
   React.useEffect(() => {
     if (fileUploadState.success) {
       toast.success(fileUploadState.message);
       if (fileInputRef.current) {
-        fileInputRef.current.value = ''; // Clear the file input
+        fileInputRef.current.value = '';
       }
     } else if (fileUploadState.message) {
       toast.error(fileUploadState.message);
@@ -144,7 +168,48 @@ export function ProjectDetailView({ project, users, timeEntries, activities }: {
             <h1 className="text-2xl font-bold">{project.name}</h1>
             <Badge>{project.status.replace("_", " ")}</Badge>
         </div>
-        <p className="text-muted-foreground">{project.description}</p>
+        
+        <div className="mt-4">
+          {isEditingDescription ? (
+            <div className="space-y-2">
+              <Textarea
+                className="min-h-[150px] text-base"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Describe your project using Markdown..."
+              />
+              <div className="flex items-center gap-2">
+                <Button size="sm" onClick={handleSaveDescription}>Save</Button>
+                <Button size="sm" variant="ghost" onClick={() => setIsEditingDescription(false)}>Cancel</Button>
+              </div>
+            </div>
+          ) : (
+            <div className="group relative pt-2">
+              <div className="prose prose-sm dark:prose-invert max-w-none">
+                <ReactMarkdown
+                  components={{
+                    a: ({...props}) => <a className="text-blue-500 hover:underline" target="_blank" rel="noopener noreferrer" {...props} />,
+                    ul: ({...props}) => <ul className="list-disc pl-5" {...props} />,
+                    ol: ({...props}) => <ol className="list-decimal pl-5" {...props} />,
+                  }}
+                >
+                  {project.description || "No description provided. Click the edit icon to add one."}
+                </ReactMarkdown>
+              </div>
+              <Button
+                variant="outline"
+                size="icon"
+                className="absolute top-0 right-0 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={() => {
+                  setDescription(project.description || "");
+                  setIsEditingDescription(true);
+                }}
+              >
+                <IconEdit size={14} />
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
       
       <div className="grid gap-6 lg:grid-cols-3">
@@ -156,7 +221,7 @@ export function ProjectDetailView({ project, users, timeEntries, activities }: {
                 <IconChecklist size={20} />
                 Tasks
               </CardTitle>
-              <TaskFormDialog projectId={project.id} users={users} /> {/* Pass users */}
+              <TaskFormDialog projectId={project.id} users={users} />
             </CardHeader>
             <CardContent>
               {project.tasks.length > 0 ? (

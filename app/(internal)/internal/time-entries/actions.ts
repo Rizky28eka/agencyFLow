@@ -6,23 +6,28 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { Prisma } from "@prisma/client";
 import { createActivity } from "../activities/actions"; // Import createActivity
+import { isManager } from "@/lib/permissions";
 
 export type TimeEntry = Prisma.TimeEntryGetPayload<object>;
 export type Task = Prisma.TaskGetPayload<object>;
 
-async function getCurrentUser() {
+async function getAuthenticatedUser() {
     const session = await getServerSession(authOptions);
-    if (!session || !session.user?.id) {
-        return null;
+    if (!session || !session.user?.id || !session.user.organizationId || !session.user.role) {
+        throw new Error("Unauthorized: User not authenticated.");
     }
-    return session.user;
+    const user = await prisma.user.findUnique({ 
+        where: { id: session.user.id },
+        include: { role: true }
+    });
+    if (!user) {
+        throw new Error("Unauthorized: User not found.");
+    }
+    return user;
 }
 
-export async function addTimeEntry(prevState: { success: boolean; message: string; }, formData: FormData) { // Changed prevState: any
-    const currentUser = await getCurrentUser();
-    if (!currentUser) {
-        return { success: false, message: "User not authenticated." };
-    }
+export async function addTimeEntry(prevState: { success: boolean; message: string; }, formData: FormData) {
+    const user = await getAuthenticatedUser();
 
     const hours = parseFloat(formData.get("hours") as string);
     const date = new Date(formData.get("date") as string);
@@ -42,7 +47,7 @@ export async function addTimeEntry(prevState: { success: boolean; message: strin
                 description,
                 projectId,
                 taskId: taskId || null,
-                userId: currentUser.id,
+                userId: user.id,
             },
         });
 
@@ -61,11 +66,8 @@ export async function addTimeEntry(prevState: { success: boolean; message: strin
     }
 }
 
-export async function updateTimeEntry(prevState: { success: boolean; message: string; }, formData: FormData) { // Changed prevState: any
-    const currentUser = await getCurrentUser();
-    if (!currentUser) {
-        return { success: false, message: "User not authenticated." };
-    }
+export async function updateTimeEntry(prevState: { success: boolean; message: string; }, formData: FormData) {
+    const user = await getAuthenticatedUser();
 
     const id = formData.get("id") as string;
     const hours = parseFloat(formData.get("hours") as string);
@@ -80,7 +82,7 @@ export async function updateTimeEntry(prevState: { success: boolean; message: st
 
     try {
         const updatedTimeEntry = await prisma.timeEntry.update({
-            where: { id },
+            where: { id, userId: user.id }, // Ensure only the user who created it or a manager can update
             data: {
                 hours,
                 date,
@@ -106,14 +108,11 @@ export async function updateTimeEntry(prevState: { success: boolean; message: st
 }
 
 export async function deleteTimeEntry(id: string, projectId: string) {
-    const currentUser = await getCurrentUser();
-    if (!currentUser) {
-        return { success: false, message: "User not authenticated." };
-    }
+    const user = await getAuthenticatedUser();
 
     try {
         const deletedTimeEntry = await prisma.timeEntry.delete({
-            where: { id },
+            where: { id, userId: user.id }, // Ensure only the user who created it or a manager can delete
         });
 
         // Create activity
@@ -132,16 +131,20 @@ export async function deleteTimeEntry(id: string, projectId: string) {
 }
 
 export async function getTimeEntries(projectId?: string, userId?: string) {
-    const currentUser = await getCurrentUser();
-    if (!currentUser) {
-        return [];
-    }
+    const user = await getAuthenticatedUser();
 
-    const whereClause: { projectId?: string; userId?: string } = {};
+    const whereClause: Prisma.TimeEntryWhereInput = {
+        project: {
+            organizationId: user.organizationId,
+        },
+    };
     if (projectId) {
         whereClause.projectId = projectId;
     }
-    if (userId) {
+    // Only allow users to see their own time entries unless they are a manager
+    if (!isManager(user)) {
+        whereClause.userId = user.id;
+    } else if (userId) {
         whereClause.userId = userId;
     }
 

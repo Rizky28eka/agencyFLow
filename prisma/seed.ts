@@ -12,17 +12,17 @@ async function main() {
     update: {},
     create: { name: 'ADMIN' },
   });
-  const projectManagerRole = await prisma.role.upsert({
+  await prisma.role.upsert({
     where: { name: 'PROJECT_MANAGER' },
     update: {},
     create: { name: 'PROJECT_MANAGER' },
   });
-  const memberRole = await prisma.role.upsert({
+  await prisma.role.upsert({
     where: { name: 'MEMBER' },
     update: {},
     create: { name: 'MEMBER' },
   });
-  const clientRole = await prisma.role.upsert({
+  await prisma.role.upsert({
     where: { name: 'CLIENT' },
     update: {},
     create: { name: 'CLIENT' },

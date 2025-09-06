@@ -4,14 +4,22 @@ import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { isManager } from "@/lib/permissions";
 export type Activity = Awaited<ReturnType<typeof prisma.activity.findMany>>[number];
 
-async function getCurrentUser() {
+async function getAuthenticatedUser() {
     const session = await getServerSession(authOptions);
-    if (!session || !session.user?.id) {
-        return null;
+    if (!session || !session.user?.id || !session.user.organizationId || !session.user.role) {
+        throw new Error("Unauthorized: User not authenticated.");
     }
-    return session.user;
+    const user = await prisma.user.findUnique({ 
+        where: { id: session.user.id },
+        include: { role: true }
+    });
+    if (!user) {
+        throw new Error("Unauthorized: User not found.");
+    }
+    return user;
 }
 
 export async function createActivity(
@@ -20,11 +28,7 @@ export async function createActivity(
     description: string,
     userId?: string // Optional: if activity is not directly tied to current user
 ) {
-    const currentUser = await getCurrentUser();
-    if (!currentUser) {
-        console.error("Attempted to create activity without authenticated user.");
-        return;
-    }
+    const user = await getAuthenticatedUser(); // Ensure user is authenticated
 
     try {
         await prisma.activity.create({
@@ -32,8 +36,8 @@ export async function createActivity(
                 projectId: projectId,
                 type: type,
                 description: description,
-                userId: userId || currentUser.id,
-                organizationId: currentUser.organizationId,
+                userId: userId || user.id,
+                organizationId: user.organizationId,
             },
         });
         // Revalidate paths that display activities, e.g., project detail page
@@ -44,16 +48,17 @@ export async function createActivity(
 }
 
 export async function getProjectActivities(projectId: string) {
-    const currentUser = await getCurrentUser();
-    if (!currentUser) {
-        return [];
+    const user = await getAuthenticatedUser();
+    if (!isManager(user)) {
+        // Only managers can view project activities
+        throw new Error("Unauthorized: You do not have permission to view project activities.");
     }
 
     try {
         const activities = await prisma.activity.findMany({
             where: {
                 projectId: projectId,
-                organizationId: currentUser.organizationId,
+                organizationId: user.organizationId,
             },
             include: {
                 user: {

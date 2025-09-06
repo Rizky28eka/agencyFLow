@@ -11,7 +11,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const notifications = await getNotifications(userId, orgId, 10);
+    const notifications = await getNotifications(10);
     return NextResponse.json(notifications);
   } catch (error) {
     console.error("Failed to fetch notifications:", error);

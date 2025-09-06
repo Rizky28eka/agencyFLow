@@ -1,21 +1,5 @@
-"use client"
-
 import * as React from "react"
-import {
-  IconChartBar,
-  IconDashboard,
-  IconFileDescription,
-  IconFolder,
-  IconHelp,
-  IconInnerShadowTop,
-  IconReceipt,
-  IconSettings,
-  IconUsers,
-  IconDatabase,
-  IconReport,
-  IconFileWord,
-  IconCreditCard,
-} from "@tabler/icons-react"
+import { IconInnerShadowTop } from "@tabler/icons-react"
 
 import { NavMain } from "@/components/nav-main"
 import { NavSecondary } from "@/components/nav-secondary"
@@ -30,55 +14,55 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 
-interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
-  role: "admin" | "client";
-}
-
-// --- Mock Data ---
-// In a real application, you would get the user and their role from a session.
-const mockUser = {
-  name: "John Doe",
-  email: "john.doe@example.com",
-  avatar: "https://avatar.vercel.sh/johndoe",
-}
-
-// --- Navigation Data based on Role ---
+// --- Navigation Data ---
 const navItemsAdmin = [
   {
     title: "Dashboard",
     url: "/internal/dashboard",
-    icon: IconDashboard,
+    icon: "dashboard",
   },
   {
     title: "Projects",
     url: "/internal/projects",
-    icon: IconFolder,
+    icon: "projects",
+  },
+  {
+    title: "Resource Management",
+    url: "/internal/resource-management",
+    icon: "resource-management",
   },
   {
     title: "Invoices",
     url: "/internal/invoices",
-    icon: IconReceipt,
+    icon: "invoices",
+  },
+  {
+    title: "Contracts",
+    url: "/internal/contracts",
+    icon: "contracts",
   },
   {
     title: "Expenses",
     url: "/internal/expenses",
-    icon: IconCreditCard,
+    icon: "expenses",
   },
   {
     title: "Clients",
     url: "/internal/clients",
-    icon: IconUsers,
+    icon: "clients",
   },
   {
     title: "Analytics",
     url: "/internal/analytics",
-    icon: IconChartBar,
+    icon: "analytics",
   },
   {
     title: "Users",
     url: "/internal/users",
-    icon: IconUsers,
+    icon: "users",
   },
 ]
 
@@ -86,22 +70,22 @@ const navItemsClient = [
   {
     title: "Dashboard",
     url: "/client/dashboard",
-    icon: IconDashboard,
+    icon: "dashboard",
   },
   {
     title: "My Projects",
     url: "/client/projects",
-    icon: IconFolder,
+    icon: "projects",
   },
   {
     title: "My Billing",
     url: "/client/billing",
-    icon: IconReceipt,
+    icon: "invoices",
   },
   {
     title: "Proposals",
     url: "/client/proposals",
-    icon: IconFileDescription,
+    icon: "contracts",
   },
 ]
 
@@ -109,12 +93,12 @@ const navSecondary = [
   {
     title: "Settings",
     url: "/settings",
-    icon: IconSettings,
+    icon: "settings",
   },
   {
     title: "Support",
     url: "/support",
-    icon: IconHelp,
+    icon: "support",
   },
 ]
 
@@ -122,23 +106,37 @@ const documents = [
   {
     name: "Data Library",
     url: "/internal/data-library",
-    icon: IconDatabase,
+    icon: "data-library",
   },
   {
     name: "Reports",
     url: "/internal/reports",
-    icon: IconReport,
+    icon: "reports",
   },
   {
     name: "Word Assistant",
     url: "/internal/word-assistant",
-    icon: IconFileWord,
+    icon: "word-assistant",
   },
 ];
 
-export function AppSidebar({ role, ...props }: AppSidebarProps) {
-  const isClient = role === "client"
-  const mainNav = isClient ? navItemsClient : navItemsAdmin
+export async function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
+  const session = await getServerSession(authOptions);
+  
+  // Determine role and navigation items based on session
+  const role = session?.user?.role ?? 'CLIENT';
+  const isClient = role === "CLIENT";
+  const mainNav = isClient ? navItemsClient : navItemsAdmin;
+
+  const user = session?.user ? {
+    name: session.user.name ?? 'User',
+    email: session.user.email ?? '',
+    avatar: session.user.image ?? `/placeholder-avatar.png`,
+  } : {
+    name: 'Guest',
+    email: '',
+    avatar: '/placeholder-avatar.png',
+  }
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
@@ -160,17 +158,11 @@ export function AppSidebar({ role, ...props }: AppSidebarProps) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={mainNav} />
-        <NavDocuments items={documents} />
+        {!isClient && <NavDocuments items={documents} />}
         <NavSecondary items={navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser
-          user={{
-            name: mockUser.name,
-            email: mockUser.email,
-            avatar: mockUser.avatar,
-          }}
-        />
+        <NavUser user={user} />
       </SidebarFooter>
     </Sidebar>
   )

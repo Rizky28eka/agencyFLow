@@ -1,4 +1,5 @@
-import { getProjectById, getUsers } from "../actions";
+import { getProjectById } from "../actions";
+import { getUsersByOrganization } from "@/app/(internal)/internal/users/actions";
 import { notFound } from "next/navigation";
 import { ProjectDetailView } from "./project-detail-view";
 import { getTimeEntries } from "@/app/(internal)/internal/time-entries/actions";
@@ -9,7 +10,7 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
   const { id } = params;
 
   const project = await getProjectById(id);
-  const users = await getUsers();
+  const users = await getUsersByOrganization();
   const timeEntries = await getTimeEntries(id);
   const files = await getProjectFiles(id);
   const activities = await getProjectActivities(id);

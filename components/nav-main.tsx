@@ -1,6 +1,6 @@
-"use client"
+'use client'
 
-import { IconCirclePlusFilled, IconMail, type Icon } from "@tabler/icons-react"
+import { IconCirclePlusFilled, IconMail } from "@tabler/icons-react"
 import Link from "next/link"
 
 import { Button } from "@/components/ui/button"
@@ -11,6 +11,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
+import { Icon } from "@/components/ui/icon"; // Import the new Icon component
 
 export function NavMain({
   items,
@@ -18,7 +19,7 @@ export function NavMain({
   items: {
     title: string
     url: string
-    icon?: Icon
+    icon?: string // Changed from Icon to string
   }[]
 }) {
   return (
@@ -49,7 +50,7 @@ export function NavMain({
             <SidebarMenuItem key={item.title}>
               <SidebarMenuButton asChild tooltip={item.title}>
                 <Link href={item.url}>
-                  {item.icon && <item.icon />}
+                  {item.icon && <Icon name={item.icon} />}
                   <span>{item.title}</span>
                 </Link>
               </SidebarMenuButton>

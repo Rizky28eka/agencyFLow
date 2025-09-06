@@ -1,18 +1,19 @@
 'use client'
 
-import { useActionState, useEffect, useState } from 'react';
+import { useTheme } from "next-themes";
+import { useState, useEffect, useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
+import { Toaster } from '@/components/ui/sonner';
+import { updatePassword, updateProfileImage, updateUserProfile } from '../profile/actions';
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
-import { useTheme } from "next-themes";
+import { User } from "next-auth";
 import { toast } from "sonner";
-import { updateUserProfile } from '../profile/actions';
-import { User } from '@prisma/client';
-import { Toaster } from '@/components/ui/sonner';
 
 function SubmitButton() {
     const { pending } = useFormStatus();
@@ -57,6 +58,112 @@ function ProfileForm({ user }: { user: User }) {
     )
 }
 
+function PasswordForm() {
+    const [state, formAction] = useActionState(updatePassword, { success: false, message: "" });
+
+    useEffect(() => {
+        if (state.message) {
+            if (state.success) {
+                toast.success(state.message);
+            } else {
+                toast.error(state.message);
+            }
+        }
+    }, [state]);
+
+    return (
+        <form action={formAction}>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Change Password</CardTitle>
+                    <CardDescription>Update your account password.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="oldPassword">Current Password</Label>
+                        <Input id="oldPassword" name="oldPassword" type="password" required />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="newPassword">New Password</Label>
+                        <Input id="newPassword" name="newPassword" type="password" required />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="confirmNewPassword">Confirm New Password</Label>
+                        <Input id="confirmNewPassword" name="confirmNewPassword" type="password" required />
+                    </div>
+                </CardContent>
+                <CardFooter>
+                    <SubmitButton />
+                </CardFooter>
+            </Card>
+        </form>
+    );
+}
+
+function ProfileImageForm({ user }: { user: User }) {
+    const [state, formAction] = useActionState(updateProfileImage, { success: false, message: "" });
+    const [previewImage, setPreviewImage] = useState<string | null>(user.image || null);
+
+    useEffect(() => {
+        if (state.message) {
+            if (state.success) {
+                toast.success(state.message);
+                if (state.imageUrl) { // Assuming updateProfileImage returns imageUrl on success
+                    setPreviewImage(state.imageUrl);
+                }
+            } else {
+                toast.error(state.message);
+            }
+        }
+    }, [state]);
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setPreviewImage(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+        } else {
+            setPreviewImage(user.image || null);
+        }
+    };
+
+    return (
+        <form action={formAction}>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Profile Image</CardTitle>
+                    <CardDescription>Upload a new profile image.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="flex flex-col items-center space-y-4">
+                        <div className="relative w-24 h-24 rounded-full overflow-hidden">
+                            {previewImage ? (
+                                <Image src={previewImage} alt="Profile Preview" layout="fill" objectFit="cover" />
+                            ) : (
+                                <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-500">No Image</div>
+                            )}
+                        </div>
+                        <Input
+                            id="profileImage"
+                            name="profileImage"
+                            type="file"
+                            accept="image/jpeg,image/png,image/gif,image/webp"
+                            onChange={handleFileChange}
+                            className="w-full max-w-xs"
+                        />
+                    </div>
+                </CardContent>
+                <CardFooter>
+                    <SubmitButton />
+                </CardFooter>
+            </Card>
+        </form>
+    );
+}
+
 export function SettingsClientPage({ user }: { user: User }) {
   const { setTheme, theme } = useTheme();
   const [isDarkTheme, setIsDarkTheme] = useState(theme === 'dark');
@@ -76,6 +183,8 @@ export function SettingsClientPage({ user }: { user: User }) {
                 <TabsTrigger value="profile">Profile</TabsTrigger>
                 <TabsTrigger value="appearance">Appearance</TabsTrigger>
                 <TabsTrigger value="notifications">Notifications</TabsTrigger>
+                <TabsTrigger value="security">Security</TabsTrigger>
+                <TabsTrigger value="profile-image">Profile Image</TabsTrigger>
             </TabsList>
             <TabsContent value="profile" className="space-y-4">
                 <ProfileForm user={user} />
@@ -120,6 +229,12 @@ export function SettingsClientPage({ user }: { user: User }) {
                         </div>
                     </CardContent>
                 </Card>
+            </TabsContent>
+            <TabsContent value="security" className="space-y-4">
+                <PasswordForm />
+            </TabsContent>
+            <TabsContent value="profile-image" className="space-y-4">
+                <ProfileImageForm user={user} />
             </TabsContent>
         </Tabs>
     </div>

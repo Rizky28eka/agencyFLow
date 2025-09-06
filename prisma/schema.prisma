@@ -30,13 +30,17 @@ model Organization {
   notifications Notification[]
   files       File[] // Added for File Sharing
   activities  Activity[] // Added for Activity Feed
+  contracts   Contract[]
 }
 
 model User {
   id           String    @id @default(cuid())
   email        String    @unique
   name         String?
+  image        String?
   passwordHash String
+  passwordResetToken String?
+  passwordResetExpires DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -110,6 +114,7 @@ model Client {
   projects    Project[]
   quotations  Quotation[]
   invoices    Invoice[]
+  contracts   Contract[]
 }
 
 model Project {
@@ -135,6 +140,7 @@ model Project {
   timeEntries  TimeEntry[] // Added for Time Tracking
   files        File[] // Added for File Sharing
   activities   Activity[] // Added for Activity Feed
+  contracts    Contract[]
 }
 
 enum ProjectStatus {
@@ -143,6 +149,35 @@ enum ProjectStatus {
   ON_HOLD
   COMPLETED
   CANCELLED
+}
+
+model Contract {
+  id          String         @id @default(cuid())
+  title       String
+  status      ContractStatus @default(DRAFT)
+  startDate   DateTime
+  endDate     DateTime
+  amount      Decimal
+  fileUrl     String         // URL to the stored contract file
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  clientId    String
+  client      Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  // A contract can be linked to a project, but it's not mandatory
+  projectId   String?
+  project     Project?       @relation(fields: [projectId], references: [id])
+}
+
+enum ContractStatus {
+  DRAFT
+  ACTIVE
+  EXPIRED
+  TERMINATED
 }
 
 model Task {

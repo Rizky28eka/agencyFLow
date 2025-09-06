@@ -1,11 +1,21 @@
-import { AppSidebar } from "@/components/app-sidebar"
-import { SiteHeader } from "@/components/site-header"
-import {
-  SidebarInset,
-  SidebarProvider,
-} from "@/components/ui/sidebar"
+import { AppSidebar } from "@/components/app-sidebar";
+import { SiteHeader } from "@/components/site-header";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { getServerSession } from "next-auth";
+import { redirect } from "next/navigation";
+import { authOptions } from "../api/auth/[...nextauth]/route";
 
-export default function InternalDashboardLayout({ children }: { children: React.ReactNode }) {
+export default async function InternalDashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const session = await getServerSession(authOptions);
+
+  if (!session) {
+    redirect("/login");
+  }
+
   return (
     <SidebarProvider
       style={
@@ -15,7 +25,7 @@ export default function InternalDashboardLayout({ children }: { children: React.
         } as React.CSSProperties
       }
     >
-      <AppSidebar variant="inset" role="admin" />
+      <AppSidebar variant="inset" />
       <SidebarInset>
         <SiteHeader />
         <div className="flex flex-1 flex-col">
@@ -25,5 +35,5 @@ export default function InternalDashboardLayout({ children }: { children: React.
         </div>
       </SidebarInset>
     </SidebarProvider>
-  )
+  );
 }

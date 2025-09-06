@@ -1,7 +1,7 @@
-"use client"
+'use client'
 
 import * as React from "react"
-import { type Icon } from "@tabler/icons-react"
+import { Icon } from "@/components/ui/icon"; // Import the new Icon component
 
 import {
   SidebarGroup,
@@ -18,7 +18,7 @@ export function NavSecondary({
   items: {
     title: string
     url: string
-    icon: Icon
+    icon: string // Changed from Icon to string
   }[]
 } & React.ComponentPropsWithoutRef<typeof SidebarGroup>) {
   return (
@@ -29,7 +29,7 @@ export function NavSecondary({
             <SidebarMenuItem key={item.title}>
               <SidebarMenuButton asChild>
                 <a href={item.url}>
-                  <item.icon />
+                  <Icon name={item.icon} />
                   <span>{item.title}</span>
                 </a>
               </SidebarMenuButton>

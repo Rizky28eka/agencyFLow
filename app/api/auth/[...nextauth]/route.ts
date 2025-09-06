@@ -2,7 +2,9 @@ import NextAuth, { AuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { prisma } from "@/lib/db";
 import * as bcrypt from "bcryptjs";
-// import { User } from "@prisma/client"; // Removed unused import
+import { Prisma } from "@prisma/client";
+
+type AuthorizedUser = Omit<Prisma.UserGetPayload<{ include: { role: true } }>, 'passwordHash'>;
 
 export const authOptions: AuthOptions = {
   providers: [
@@ -19,6 +21,7 @@ export const authOptions: AuthOptions = {
 
         const user = await prisma.user.findUnique({
           where: { email: credentials.email },
+          include: { role: true },
         });
 
         if (user && user.passwordHash) {
@@ -46,12 +49,14 @@ export const authOptions: AuthOptions = {
     async jwt({ token, user }) {
         if (user) {
             token.id = user.id;
-                        if ('organizationId' in user && typeof user.organizationId === 'string') {
+            token.image = user.image;
+            if ('organizationId' in user && typeof user.organizationId === 'string') {
                 token.organizationId = user.organizationId;
             }
             // Add role to token
-            if (user && 'role' in user && user.role && typeof user.role === 'object' && 'name' in user.role && typeof user.role.name === 'string') {
-                token.role = user.role.name;
+            const authorizedUser = user as AuthorizedUser;
+            if (authorizedUser.role && typeof authorizedUser.role === 'object' && 'name' in authorizedUser.role) {
+                token.role = authorizedUser.role.name;
             }
         }
         return token;
@@ -60,6 +65,7 @@ export const authOptions: AuthOptions = {
         if (session.user) {
             (session.user as { id: string }).id = token.id as string;
             (session.user as { organizationId: string }).organizationId = token.organizationId as string;
+            (session.user as { image: string | null }).image = token.image as string | null;
             // Add role to session.user
             (session.user as { role: string }).role = token.role as string;
         }

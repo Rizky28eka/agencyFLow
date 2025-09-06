@@ -38,7 +38,7 @@ export function NotificationBell() {
     }
   );
 
-  const unreadCount = notifications?.filter(n => !n.read).length || 0;
+  const unreadCount = Array.isArray(notifications) ? notifications.filter(n => !n.read).length : 0;
 
   React.useEffect(() => {
     if (error) {
@@ -80,7 +80,9 @@ export function NotificationBell() {
       <DropdownMenuContent align="end" className="w-80">
         <DropdownMenuLabel>Notifications</DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {!notifications || notifications.length === 0 ? (
+        {error ? (
+          <DropdownMenuItem disabled>Failed to load notifications</DropdownMenuItem>
+        ) : !Array.isArray(notifications) || notifications.length === 0 ? (
           <DropdownMenuItem disabled>No new notifications</DropdownMenuItem>
         ) : (
           notifications.map((notification) => (
