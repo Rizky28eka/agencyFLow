@@ -41,7 +41,7 @@ type ProjectDetailProps = Omit<ProjectWithCalculatedFields, 'budget' | 'expenses
     profitability: number;
 };
 type UserListProps = User[];
-import { TimeEntryWithRelations } from '../../time-entries/actions';
+import type { TimeEntryWithRelations } from '../../time-entries/actions';
 
 function FileUploadButton() {
   const { pending } = useFormStatus();
@@ -117,7 +117,7 @@ function FileActions({ file, projectId, onSuccess }: FileActionsProps) {
 }
 
 
-type ActivityWithUser = Activity & { user: { name: string | null } };
+export type ActivityWithUser = Activity & { user: { name: string | null } };
 
 export function ProjectDetailView({ project, users, timeEntries, activities }: { project: ProjectDetailProps, users: UserListProps, timeEntries: TimeEntryWithRelations[], activities: ActivityWithUser[] }) {
   const [fileUploadState, fileUploadAction] = useActionState(uploadFile, { success: false, message: "" });
@@ -576,3 +576,5 @@ export function ProjectDetailView({ project, users, timeEntries, activities }: {
     </div>
   );
 }
+
+export { TimeEntryWithRelations, type UserListProps, type ProjectDetailProps };

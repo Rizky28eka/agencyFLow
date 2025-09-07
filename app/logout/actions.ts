@@ -1,7 +1,9 @@
-'use server'
+'use server';
 
-import { signOut } from "next-auth/react";
+import { redirect } from 'next/navigation';
 
 export async function logout() {
-  await signOut();
+  // Perform any server-side cleanup if necessary
+  // Then redirect to a client-side logout page
+  redirect('/logout-client'); // Create a new client-side route for logout
 }

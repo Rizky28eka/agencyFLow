@@ -12,7 +12,8 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Prisma } from "@prisma/client"; // Import Client and Service types
 import { PlusCircle, Trash2 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 
 type QuotationItemForm = {
     id?: string;
@@ -109,144 +110,161 @@ export default function NewQuotationPage() {
     };
 
     return (
-        <div className="container mx-auto py-10">
-            <h1 className="text-3xl font-bold mb-6">Create New Quotation</h1>
+        <main className="flex-1 space-y-4 p-8 md:p-10">
+            <div className="flex items-center justify-between space-y-2">
+                <div>
+                    <h2 className="text-2xl font-bold tracking-tight">Create New Quotation</h2>
+                    <p className="text-muted-foreground">Fill in the details to create a new quotation.</p>
+                </div>
+            </div>
             <form onSubmit={handleSubmit} className="space-y-6">
                 <Card>
                     <CardHeader>
                         <CardTitle>Quotation Details</CardTitle>
+                        <CardDescription>Select client and dates.</CardDescription>
                     </CardHeader>
-                    <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <Label htmlFor="clientId">Client</Label>
-                            <Select onValueChange={setClientId} value={clientId}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select a client" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {clients.map((client) => (
-                                        <SelectItem key={client.id} value={client.id}>
-                                            {client.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div>
-                            <Label htmlFor="issueDate">Issue Date</Label>
-                            <DatePicker date={issueDate} setDate={setIssueDate} />
-                        </div>
-                        <div>
-                            <Label htmlFor="expiryDate">Expiry Date (Optional)</Label>
-                            <DatePicker date={expiryDate} setDate={setExpiryDate} />
+                    <CardContent>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className="space-y-2">
+                                <Label htmlFor="clientId">Client</Label>
+                                <Select onValueChange={setClientId} value={clientId}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select a client" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {clients.map((client) => (
+                                            <SelectItem key={client.id} value={client.id}>
+                                                {client.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="issueDate">Issue Date</Label>
+                                <DatePicker date={issueDate} setDate={setIssueDate} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="expiryDate">Expiry Date (Optional)</Label>
+                                <DatePicker date={expiryDate} setDate={setExpiryDate} />
+                            </div>
                         </div>
                     </CardContent>
                 </Card>
 
                 <Card>
                     <CardHeader>
-                        <CardTitle className="flex justify-between items-center">
-                            Quotation Items
-                            <Button type="button" onClick={handleAddItem} size="sm">
-                                <PlusCircle className="h-4 w-4 mr-2" /> Add Item
-                            </Button>
-                        </CardTitle>
+                        <CardTitle>Quotation Items</CardTitle>
+                        <CardDescription>Add or remove items from the quotation.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                         {items.map((item, index) => (
-                            <div key={item.id || index} className="grid grid-cols-1 md:grid-cols-6 gap-4 border p-4 rounded-md relative">
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleRemoveItem(index)}
-                                    className="absolute top-2 right-2 text-red-500 hover:text-red-700"
-                                >
-                                    <Trash2 className="h-4 w-4" />
-                                </Button>
-                                <div className="md:col-span-2">
-                                    <Label htmlFor={`description-${index}`}>Description</Label>
-                                    <Textarea
-                                        id={`description-${index}`}
-                                        value={item.description}
-                                        onChange={(e) => handleItemChange(index, "description", e.target.value)}
-                                        required
-                                    />
+                            <div key={item.id || index} className="p-4 border rounded-lg space-y-4">
+                                <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
+                                    <div className="md:col-span-4 space-y-2">
+                                        <Label htmlFor={`description-${index}`}>Description</Label>
+                                        <Textarea
+                                            id={`description-${index}`}
+                                            value={item.description}
+                                            onChange={(e) => handleItemChange(index, "description", e.target.value)}
+                                            required
+                                        />
+                                    </div>
+                                    <div className="md:col-span-2 space-y-2">
+                                        <Label htmlFor={`service-${index}`}>Service</Label>
+                                        <Select onValueChange={(value) => handleItemChange(index, "serviceId", value)} value={item.serviceId}>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="(Optional)" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {services.map((service) => (
+                                                    <SelectItem key={service.id} value={service.id}>
+                                                        {service.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="md:col-span-1 space-y-2">
+                                        <Label htmlFor={`quantity-${index}`}>Qty</Label>
+                                        <Input
+                                            id={`quantity-${index}`}
+                                            type="number"
+                                            value={item.quantity}
+                                            onChange={(e) => handleItemChange(index, "quantity", e.target.value)}
+                                            min="1"
+                                            required
+                                        />
+                                    </div>
+                                    <div className="md:col-span-2 space-y-2">
+                                        <Label htmlFor={`unitPrice-${index}`}>Unit Price</Label>
+                                        <Input
+                                            id={`unitPrice-${index}`}
+                                            type="number"
+                                            value={item.unitPrice}
+                                            onChange={(e) => handleItemChange(index, "unitPrice", e.target.value)}
+                                            step="0.01"
+                                            min="0"
+                                            required
+                                        />
+                                    </div>
+                                    <div className="md:col-span-1 space-y-2">
+                                        <Label htmlFor={`discountPct-${index}`}>Disc. %</Label>
+                                        <Input
+                                            id={`discountPct-${index}`}
+                                            type="number"
+                                            value={item.discountPct || ""}
+                                            onChange={(e) => handleItemChange(index, "discountPct", e.target.value)}
+                                            step="0.01"
+                                            min="0"
+                                            max="100"
+                                        />
+                                    </div>
+                                    <div className="md:col-span-1 space-y-2">
+                                        <Label htmlFor={`taxPct-${index}`}>Tax %</Label>
+                                        <Input
+                                            id={`taxPct-${index}`}
+                                            type="number"
+                                            value={item.taxPct || ""}
+                                            onChange={(e) => handleItemChange(index, "taxPct", e.target.value)}
+                                            step="0.01"
+                                            min="0"
+                                        />
+                                    </div>
+                                    <div className="md:col-span-1 flex items-end">
+                                        <Button
+                                            type="button"
+                                            variant="destructive"
+                                            size="icon"
+                                            onClick={() => handleRemoveItem(index)}
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </div>
                                 </div>
-                                <div>
-                                    <Label htmlFor={`service-${index}`}>Service (Optional)</Label>
-                                    <Select onValueChange={(value) => handleItemChange(index, "serviceId", value)} value={item.serviceId}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select a service" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {services.map((service) => (
-                                                <SelectItem key={service.id} value={service.id}>
-                                                    {service.name}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div>
-                                    <Label htmlFor={`quantity-${index}`}>Quantity</Label>
-                                    <Input
-                                        id={`quantity-${index}`}
-                                        type="number"
-                                        value={item.quantity}
-                                        onChange={(e) => handleItemChange(index, "quantity", e.target.value)}
-                                        min="1"
-                                        required
-                                    />
-                                </div>
-                                <div>
-                                    <Label htmlFor={`unitPrice-${index}`}>Unit Price</Label>
-                                    <Input
-                                        id={`unitPrice-${index}`}
-                                        type="number"
-                                        value={item.unitPrice}
-                                        onChange={(e) => handleItemChange(index, "unitPrice", e.target.value)}
-                                        step="0.01"
-                                        min="0"
-                                        required
-                                    />
-                                </div>
-                                <div>
-                                    <Label htmlFor={`discountPct-${index}`}>Discount (%)</Label>
-                                    <Input
-                                        id={`discountPct-${index}`}
-                                        type="number"
-                                        value={item.discountPct || ""}
-                                        onChange={(e) => handleItemChange(index, "discountPct", e.target.value)}
-                                        step="0.01"
-                                        min="0"
-                                        max="100"
-                                    />
-                                </div>
-                                <div>
-                                    <Label htmlFor={`taxPct-${index}`}>Tax (%)</Label>
-                                    <Input
-                                        id={`taxPct-${index}`}
-                                        type="number"
-                                        value={item.taxPct || ""}
-                                        onChange={(e) => handleItemChange(index, "taxPct", e.target.value)}
-                                        step="0.01"
-                                        min="0"
-                                    />
-                                </div>
-                                <div className="md:col-span-6 text-right font-semibold">
+                                <Separator />
+                                <div className="text-right font-semibold">
                                     Line Total: {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(calculateLineTotal(item))}
                                 </div>
                             </div>
                         ))}
-                        <div className="text-right text-xl font-bold mt-4">
+                        <Button type="button" onClick={handleAddItem} variant="outline" className="mt-4">
+                            <PlusCircle className="h-4 w-4 mr-2" /> Add Item
+                        </Button>
+                        <Separator className="my-6" />
+                        <div className="text-right text-2xl font-bold mt-4">
                             Total Amount: {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(calculateTotalAmount())}
                         </div>
                     </CardContent>
                 </Card>
 
-                <Button type="submit">Create Quotation</Button>
+                <div className="flex justify-end space-x-2">
+                    <Button type="button" variant="outline" onClick={() => router.back()}>
+                        Cancel
+                    </Button>
+                    <Button type="submit">Create Quotation</Button>
+                </div>
             </form>
-        </div>
+        </main>
     );
 }

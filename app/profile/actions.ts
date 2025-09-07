@@ -40,6 +40,40 @@ export async function getUserProfile() {
   return profile;
 }
 
+export async function updateUserCapacity(prevState: { success: boolean; message: string; }, formData: FormData) {
+    const user = await getAuthenticatedUser();
+
+    const dailyCapacityHours = formData.get("dailyCapacityHours") as string;
+
+    if (!dailyCapacityHours) {
+        return { success: false, message: "Daily capacity is required." };
+    }
+
+    const capacity = parseFloat(dailyCapacityHours);
+
+    if (isNaN(capacity) || capacity < 0 || capacity > 24) {
+        return { success: false, message: "Invalid capacity value. Please enter a number between 0 and 24." };
+    }
+
+    try {
+        await prisma.user.update({
+            where: {
+                id: user.id,
+            },
+            data: {
+                dailyCapacityHours: capacity,
+            },
+        });
+        revalidatePath("/profile");
+        revalidatePath("/settings");
+        revalidatePath("/internal/resource-management");
+        return { success: true, message: "Capacity updated successfully!" };
+    } catch (error) {
+        console.error(error);
+        return { success: false, message: "Failed to update capacity." };
+    }
+}
+
 export async function updateUserProfile(prevState: { success: boolean; message: string; }, formData: FormData) {
     const user = await getAuthenticatedUser();
 

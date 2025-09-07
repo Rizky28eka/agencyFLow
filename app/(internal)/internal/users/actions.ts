@@ -70,6 +70,68 @@ export async function getRoles() {
     }
 }
 
+export async function getUsersForProjectView(): Promise<UserWithRole[]> {
+    const user = await getAuthenticatedUser();
+    if (user.role.name === 'CLIENT') {
+        throw new Error("Unauthorized: Clients cannot fetch user lists.");
+    }
+
+    try {
+        const users = await prisma.user.findMany({
+            where: {
+                organizationId: user.organizationId,
+                role: {
+                    name: {
+                        not: 'CLIENT'
+                    }
+                }
+            },
+            include: {
+                role: true,
+            },
+            orderBy: {
+                name: "asc",
+            },
+        });
+        return users as UserWithRole[];
+    } catch (error) {
+        console.error("Failed to fetch users for project view:", error);
+        throw new Error("Failed to fetch users for project view.");
+    }
+}
+
+export async function getUsersForSelection(): Promise<{ id: string; name: string | null; }[]> {
+    const user = await getAuthenticatedUser(); // This already checks for session and orgId
+
+    if (user.role.name === 'CLIENT') {
+        throw new Error("Unauthorized: Clients cannot fetch user lists.");
+    }
+
+    try {
+        const users = await prisma.user.findMany({
+            where: {
+                organizationId: user.organizationId,
+                role: {
+                    name: {
+                        not: 'CLIENT'
+                    }
+                }
+            },
+            select: {
+                id: true,
+                name: true,
+            },
+            orderBy: {
+                name: "asc",
+            },
+        });
+        return users;
+    } catch (error) {
+        console.error("Failed to fetch users for selection:", error);
+        throw new Error("Failed to fetch users for selection.");
+    }
+}
+
 export async function createUser(prevState: { success: boolean; message: string; }, formData: FormData) {
     const user = await getAuthenticatedUser();
     if (!canManageUsers(user)) {

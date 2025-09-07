@@ -5,15 +5,17 @@ declare module "next-auth" {
     user: {
       id: string;
       organizationId: string;
-      role: string; // Add this line
-      image?: string | null;
-    } & DefaultSession["user"];
+      role: string;
+          clientId?: string | null; // Add clientId
+          image?: string | null;
+        } & DefaultSession["user"];
   }
 
   interface JWT {
-    id: string;
-    organizationId: string;
-    role: string; // Add this line
-    image?: string | null;
-  }
+      id: string;
+      organizationId: string;
+      role: string;
+      clientId?: string | null; // Add clientId
+      image?: string | null;
+    }
 }

@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { FileApprovalStatus } from '@prisma/client';
+import { FileApprovalStatus, CommentEntityType } from '@prisma/client';
 import { updateFileApprovalStatus } from '@/app/actions/files';
 import { useSession } from 'next-auth/react';
+import CommentSection from '@/components/comments/comment-section';
 
 interface FileItem {
   id: string;
@@ -135,6 +136,9 @@ const FileApprovalList: React.FC<{ id: string }> = ({ id }) => {
                 </button>
               </div>
             )}
+            <div className="mt-4">
+              <CommentSection entityType={CommentEntityType.FILE} entityId={file.id} />
+            </div>
           </div>
         ))}
       </div>
@@ -153,8 +157,12 @@ export default function ClientProjectDetailPage() {
       <p>Here you can see details about your project.</p>
 
       <div className="mt-8">
-        <FileApprovalList id={id} /> {/* Changed projectId to id */}
-      </div>
-    </div>
-  );
-}
+            <FileApprovalList id={id} /> {/* Changed projectId to id */}
+          </div>
+
+          <div className="mt-8">
+            <CommentSection entityType={CommentEntityType.PROJECT} entityId={id} />
+          </div>
+        </div>
+      );
+    }

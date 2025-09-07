@@ -4,7 +4,7 @@ import { useTheme } from "next-themes";
 import { useState, useEffect, useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Toaster } from '@/components/ui/sonner';
-import { updatePassword, updateProfileImage, updateUserProfile } from '../profile/actions';
+import { updatePassword, updateProfileImage, updateUserProfile, updateUserCapacity } from '../profile/actions';
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
-import { User } from "next-auth";
+import { User } from "@prisma/client";
 import { toast } from "sonner";
 
 function SubmitButton() {
@@ -164,6 +164,48 @@ function ProfileImageForm({ user }: { user: User }) {
     );
 }
 
+function CapacityForm({ user }: { user: User }) {
+    const [state, formAction] = useActionState(updateUserCapacity, { success: false, message: "" });
+
+    useEffect(() => {
+        if (state.message) {
+            if (state.success) {
+                toast.success(state.message);
+            } else {
+                toast.error(state.message);
+            }
+        }
+    }, [state]);
+
+    return (
+        <form action={formAction}>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Capacity</CardTitle>
+                    <CardDescription>Set your daily work capacity.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="dailyCapacityHours">Daily Capacity (hours)</Label>
+                        <Input
+                            id="dailyCapacityHours"
+                            name="dailyCapacityHours"
+                            type="number"
+                            defaultValue={user.dailyCapacityHours?.toString() || '8'}
+                            step="0.5"
+                            min="0"
+                            max="24"
+                        />
+                    </div>
+                </CardContent>
+                <CardFooter>
+                    <SubmitButton />
+                </CardFooter>
+            </Card>
+        </form>
+    );
+}
+
 export function SettingsClientPage({ user }: { user: User }) {
   const { setTheme, theme } = useTheme();
   const [isDarkTheme, setIsDarkTheme] = useState(theme === 'dark');
@@ -185,6 +227,7 @@ export function SettingsClientPage({ user }: { user: User }) {
                 <TabsTrigger value="notifications">Notifications</TabsTrigger>
                 <TabsTrigger value="security">Security</TabsTrigger>
                 <TabsTrigger value="profile-image">Profile Image</TabsTrigger>
+                <TabsTrigger value="capacity">Capacity</TabsTrigger>
             </TabsList>
             <TabsContent value="profile" className="space-y-4">
                 <ProfileForm user={user} />
@@ -235,6 +278,9 @@ export function SettingsClientPage({ user }: { user: User }) {
             </TabsContent>
             <TabsContent value="profile-image" className="space-y-4">
                 <ProfileImageForm user={user} />
+            </TabsContent>
+            <TabsContent value="capacity" className="space-y-4">
+                <CapacityForm user={user} />
             </TabsContent>
         </Tabs>
     </div>

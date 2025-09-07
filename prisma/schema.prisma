@@ -97,6 +97,7 @@ enum NotificationType {
   INVOICE
   PROJECT
   CONTRACT
+  FILE // Added FILE type for notifications
 }
 
 enum CommentEntityType {

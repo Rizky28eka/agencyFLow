@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'; // Import usePathname and useSearchParams
+import { useEffect, useState } from 'react'; // Import useEffect and useState
 import { useTranslation } from 'next-i18next';
 import { supportedLngs } from '@/lib/i18n'; // Import supportedLngs
 import {
@@ -16,6 +17,11 @@ export function LanguageSwitcher() {
   const pathname = usePathname(); // Get current pathname
   const searchParams = useSearchParams(); // Get current search params
   const { i18n } = useTranslation();
+  const [mounted, setMounted] = useState(false); // State to track if component is mounted
+
+  useEffect(() => {
+    setMounted(true); // Set mounted to true after component mounts
+  }, []);
 
   const handleLanguageChange = (newLocale: string) => {
     // Construct the new URL with the updated locale
@@ -36,10 +42,14 @@ export function LanguageSwitcher() {
     router.refresh();
   };
 
+  if (!mounted) {
+    return null; // Don't render on the server or before mounting
+  }
+
   return (
     <Select onValueChange={handleLanguageChange} value={i18n.language}>
       <SelectTrigger className="w-[100px]">
-        <SelectValue placeholder="Language" />
+        <SelectValue>Language</SelectValue>
       </SelectTrigger>
       <SelectContent>
         {supportedLngs.map((locale) => (

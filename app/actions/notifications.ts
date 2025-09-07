@@ -1,12 +1,38 @@
-'use server'
+// app/actions/notifications.ts
+'use server';
 
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-// import { isManager } from "@/lib/permissions"; // Removed unused import
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
+import { prisma } from '@/lib/db';
+import { NotificationType } from '@prisma/client';
 
-// This is a placeholder for a real Slack integration.
-// In a real application, you would use a Slack API client (e.g., @slack/web-api)
-// and send a message to a specific channel or user.
+export async function createNotification(
+  recipientId: string,
+  message: string,
+  link: string,
+  type: NotificationType = NotificationType.GENERAL
+) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.organizationId) {
+    throw new Error('Unauthorized');
+  }
+
+  try {
+    const notification = await prisma.notification.create({
+      data: {
+        recipientId,
+        message,
+        link,
+        type,
+        organizationId: session.user.organizationId,
+      },
+    });
+    return notification;
+  } catch (error) {
+    console.error('Failed to create notification:', error);
+    throw new Error('Failed to create notification');
+  }
+}
 
 export async function sendSlackNotification(message: string) {
     const session = await getServerSession(authOptions);

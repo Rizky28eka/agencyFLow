@@ -165,4 +165,4 @@ export async function getTimeEntries(projectId?: string, userId?: string) {
     }
 }
 
-export type TimeEntryWithRelations = TimeEntry & { user: { name: string | null }, task: Task | null };
+export type TimeEntryWithRelations = TimeEntry & { user: { name: string | null }, project: { name: string | null }, task: Task | null };

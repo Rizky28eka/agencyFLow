@@ -1,8 +1,8 @@
-export default function ClientProjectsPage() {
-  return (
-    <div>
-      <h1>My Projects</h1>
-      <p>This is the client projects page.</p>
-    </div>
-  );
+import { getClientProjects } from "@/app/actions/client-data";
+import ProjectsClientPage from "./projects-client-page";
+
+export default async function ClientProjectsPage() {
+  const projects = await getClientProjects();
+
+  return <ProjectsClientPage projects={projects} />;
 }

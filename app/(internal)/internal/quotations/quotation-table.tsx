@@ -41,7 +41,7 @@ const columns: ColumnDef<Quotation>[] = [
                     variant="ghost"
                     onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
                 >
-                    Quotation #
+                    <span className="font-bold">Quotation #</span>
                     <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
             );
@@ -49,7 +49,7 @@ const columns: ColumnDef<Quotation>[] = [
         cell: ({ row }) => {
             const quotation = row.original;
             return (
-                <Link href={`/internal/quotations/${quotation.id}`} className="text-blue-600 hover:underline">
+                <Link href={`/internal/quotations/${quotation.id}`} className="text-blue-600 hover:underline font-medium">
                     {quotation.quotationNumber}
                 </Link>
             );
@@ -63,7 +63,7 @@ const columns: ColumnDef<Quotation>[] = [
                     variant="ghost"
                     onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
                 >
-                    Client
+                    <span className="font-bold">Client</span>
                     <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
             );
@@ -78,7 +78,7 @@ const columns: ColumnDef<Quotation>[] = [
                     variant="ghost"
                     onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
                 >
-                    Issue Date
+                    <span className="font-bold">Issue Date</span>
                     <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
             );
@@ -92,8 +92,8 @@ const columns: ColumnDef<Quotation>[] = [
                 <Button
                     variant="ghost"
                     onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-                >+
-                    Expiry Date
+                >
+                    <span className="font-bold">Expiry Date</span>
                     <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
             );
@@ -108,7 +108,7 @@ const columns: ColumnDef<Quotation>[] = [
                     variant="ghost"
                     onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
                 >
-                    Total Amount
+                    <span className="font-bold">Total Amount</span>
                     <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
             );
@@ -116,8 +116,8 @@ const columns: ColumnDef<Quotation>[] = [
         cell: ({ row }) => {
             const amount = parseFloat(row.getValue("totalAmount"));
             const formatted = new Intl.NumberFormat("id-ID", {
-  style: "currency",
-  currency: row.original.currency || "IDR",
+                style: "currency",
+                currency: row.original.currency || "IDR",
             }).format(amount);
             return <div className="text-right font-medium">{formatted}</div>;
         },
@@ -130,7 +130,7 @@ const columns: ColumnDef<Quotation>[] = [
                     variant="ghost"
                     onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
                 >
-                    Status
+                    <span className="font-bold">Status</span>
                     <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
             );
@@ -156,7 +156,7 @@ const columns: ColumnDef<Quotation>[] = [
                     variant = "secondary";
                     break;
             }
-            return <Badge variant={variant}>{status}</Badge>;
+            return <Badge variant={variant} className="capitalize px-2 py-1 text-xs">{status.replace(/_/g, ' ')}</Badge>;
         },
     },
     {
@@ -209,7 +209,7 @@ const columns: ColumnDef<Quotation>[] = [
                         <DropdownMenuSeparator />
                         <AlertDialog>
                             <AlertDialogTrigger asChild>
-                                <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                                <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-red-600">
                                     Delete
                                 </DropdownMenuItem>
                             </AlertDialogTrigger>

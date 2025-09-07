@@ -13,18 +13,59 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarSeparator,
+  SidebarGroup,
+  SidebarGroupLabel,
 } from "@/components/ui/sidebar"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { navItemsAdmin, navItemsClient, navSecondary, documents } from "@/config/navigation";
+import {
+  navItemsAdmin,
+  navItemsProjectManager,
+  navItemsMember,
+  navItemsClient as navItemsClientConfig,
+  navSecondary,
+  documents
+} from "@/config/navigation";
+import { getClientProjects, getOutstandingClientInvoices, getClientQuotations } from "@/app/actions/client-data";
+import { QuotationStatus, UserRole } from "@prisma/client";
 
 export async function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
   const session = await getServerSession(authOptions);
   
-  // Determine role and navigation items based on session
-  const role = session?.user?.role ?? 'CLIENT';
-  const isClient = role === "CLIENT";
-  const mainNav = isClient ? navItemsClient : navItemsAdmin;
+  const role = session?.user?.role ?? UserRole.CLIENT;
+  const isClient = role === UserRole.CLIENT;
+
+  let mainNav;
+
+  switch (role) {
+    case UserRole.ADMIN:
+      mainNav = navItemsAdmin;
+      break;
+    case UserRole.PROJECT_MANAGER:
+      mainNav = navItemsProjectManager;
+      break;
+    case UserRole.MEMBER:
+      mainNav = navItemsMember;
+      break;
+    case UserRole.CLIENT:
+      const [projects, outstandingInvoices, quotations] = await Promise.all([
+        getClientProjects(),
+        getOutstandingClientInvoices(),
+                  getClientQuotations(),
+      ]);
+      const pendingQuotations = quotations.filter(q => q.status === QuotationStatus.SENT || q.status === QuotationStatus.VIEWED).length;
+      mainNav = navItemsClientConfig.map(item => {
+        if (item.title === "My Projects") return { ...item, label: projects.length.toString() };
+        if (item.title === "My Billing") return { ...item, label: outstandingInvoices.length.toString() };
+        if (item.title === "Proposals") return { ...item, label: pendingQuotations.toString() };
+        return item;
+      });
+      break;
+    default:
+      mainNav = [];
+      break;
+  }
 
   const user = session?.user ? {
     name: session.user.name ?? 'User',
@@ -55,9 +96,24 @@ export async function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={mainNav} />
-        {!isClient && <NavDocuments items={documents} />}
-        <NavSecondary items={navSecondary} className="mt-auto" />
+        <SidebarGroup>
+          <NavMain items={mainNav} isClient={isClient} />
+        </SidebarGroup>
+        
+        {!isClient && (
+          <>
+            <SidebarSeparator />
+            <SidebarGroup>
+              <SidebarGroupLabel>Documents</SidebarGroupLabel>
+              <NavDocuments items={documents} />
+            </SidebarGroup>
+          </>
+        )}
+
+        <SidebarGroup className="mt-auto">
+          <SidebarSeparator />
+          <NavSecondary items={navSecondary} />
+        </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={user} />

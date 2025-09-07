@@ -56,6 +56,72 @@ export const navItemsAdmin = [
   },
 ];
 
+export const navItemsProjectManager = [
+  {
+    title: "Dashboard",
+    url: "/internal/dashboard",
+    icon: "dashboard",
+  },
+  {
+    title: "Projects",
+    url: "/internal/projects",
+    icon: "projects",
+  },
+  {
+    title: "Resource Management",
+    url: "/internal/resource-management",
+    icon: "resource-management",
+  },
+  {
+    title: "Invoices",
+    url: "/internal/invoices",
+    icon: "invoices",
+  },
+  {
+    title: "Contracts",
+    url: "/internal/contracts",
+    icon: "contracts",
+  },
+  {
+    title: "Quotations",
+    url: "/internal/quotations",
+    icon: "invoices",
+  },
+  {
+    title: "Expenses",
+    url: "/internal/expenses",
+    icon: "expenses",
+  },
+  {
+    title: "Clients",
+    url: "/internal/clients",
+    icon: "clients",
+  },
+];
+
+export const navItemsMember = [
+  {
+    title: "Dashboard",
+    url: "/internal/dashboard",
+    icon: "dashboard",
+  },
+  {
+    title: "Projects",
+    url: "/internal/projects",
+    icon: "projects",
+  },
+  {
+    title: "My Tasks",
+    url: "/internal/my-tasks",
+    icon: "tasks",
+  },
+  {
+    title: "Expenses",
+    url: "/internal/expenses",
+    icon: "expenses",
+  },
+];
+
 export const navItemsClient = [
   {
     title: "Dashboard",

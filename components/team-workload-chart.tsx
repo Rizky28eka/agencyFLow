@@ -1,28 +1,31 @@
-"use client";
+'use client';
 
 import { TeamWorkloadData } from "@/app/(internal)/internal/resource-management/actions";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { eachDayOfInterval, format, differenceInDays, startOfMonth, endOfMonth, isWithinInterval } from "date-fns";
+import { eachDayOfInterval, format, differenceInDays, startOfMonth, endOfMonth, isWithinInterval, startOfWeek, endOfWeek, eachWeekOfInterval } from "date-fns";
 import React from "react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils"; // Import cn for conditional classnames
 
 interface TeamWorkloadChartProps {
   data: TeamWorkloadData;
+  view: 'monthly' | 'weekly';
   month?: Date;
 }
 
 const DAY_WIDTH = 35;
+const WEEK_WIDTH = 150;
 const USER_ROW_HEIGHT = 50;
 const DEFAULT_DAILY_CAPACITY = 8; // Default if user.dailyCapacityHours is null
 
-export function TeamWorkloadChart({ data, month = new Date() }: TeamWorkloadChartProps) {
+export function TeamWorkloadChart({ data, view, month = new Date() }: TeamWorkloadChartProps) {
   const startDate = startOfMonth(month);
   const endDate = endOfMonth(month);
 
   const days = eachDayOfInterval({ start: startDate, end: endDate });
-  const totalDays = days.length;
-  const chartWidth = totalDays * DAY_WIDTH;
+  const weeks = eachWeekOfInterval({ start: startDate, end: endDate }, { weekStartsOn: 1 });
+
+  const chartWidth = view === 'monthly' ? days.length * DAY_WIDTH : weeks.length * WEEK_WIDTH;
 
   // Pre-calculate daily allocated hours and capacity for each user
   const processedData = data.map(user => {
@@ -53,138 +56,241 @@ export function TeamWorkloadChart({ data, month = new Date() }: TeamWorkloadChar
     };
   });
 
+  const renderMonthlyView = () => (
+    <>
+        {/* Timeline Header */}
+        <div className="sticky top-0 z-10 flex bg-white dark:bg-gray-900 border-b pb-2 mb-2">
+            {days.map((day, index) => (
+                <div
+                    key={index}
+                    className="flex-shrink-0 text-center"
+                    style={{ width: DAY_WIDTH }}
+                >
+                    <div className="text-xs text-gray-500">{format(day, "E")}</div>
+                    <div className="text-sm font-semibold">{format(day, "d")}</div>
+                </div>
+            ))}
+        </div>
+
+        {/* Grid Lines */}
+        <div className="absolute top-0 left-0 w-full h-full -z-10">
+            {days.map((_day, index) => (
+                <div
+                    key={index}
+                    className="absolute h-full border-r border-gray-100 dark:border-gray-800"
+                    style={{ left: index * DAY_WIDTH, width: DAY_WIDTH }}
+                ></div>
+            ))}
+        </div>
+
+        {/* User Rows and Daily Workload Cells */}
+        <div className="relative space-y-1">
+            {processedData.map((user) => (
+                <div
+                    key={user.id}
+                    className="relative flex items-center"
+                    style={{ height: USER_ROW_HEIGHT }}
+                >
+                    {/* User Label (Sticky) */}
+                    <div className="sticky left-0 z-10 w-32 pr-4 font-semibold text-sm bg-white dark:bg-gray-900 truncate">
+                        {user.name || user.email}
+                    </div>
+
+                    {/* Daily Workload Cells */}
+                    <div className="absolute w-full flex" style={{ left: 0 }}>
+                        {days.map((day, dayIndex) => {
+                            const dateString = format(day, 'yyyy-MM-dd');
+                            const allocated = user.dailyAllocations[dateString] || 0;
+                            const capacity = user.dailyCapacity;
+                            const remaining = capacity - allocated;
+
+                            let bgColor = 'bg-gray-100'; // Default
+                            let textColor = 'text-gray-800';
+                            if (allocated > capacity) {
+                                bgColor = 'bg-red-200';
+                                textColor = 'text-red-800';
+                            } else if (allocated > 0) {
+                                bgColor = 'bg-green-200';
+                                textColor = 'text-green-800';
+                            }
+
+                            return (
+                                <Tooltip key={dayIndex}>
+                                    <TooltipTrigger asChild>
+                                        <div
+                                            className={cn(
+                                                "flex-shrink-0 flex items-center justify-center text-xs font-medium border-r border-gray-200 dark:border-gray-700",
+                                                bgColor, textColor
+                                            )}
+                                            style={{ width: DAY_WIDTH, height: USER_ROW_HEIGHT }}
+                                        >
+                                            {allocated > 0 ? allocated : '-'}
+                                        </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p className="font-bold">{format(day, 'MMM d, yyyy')}</p>
+                                        <p>Allocated: {allocated} hours</p>
+                                        <p>Capacity: {capacity} hours</p>
+                                        <p>Remaining: {remaining.toFixed(2)} hours</p>
+                                        {allocated > capacity && <p className="text-red-500">Over-allocated!</p>}
+                                    </TooltipContent>
+                                </Tooltip>
+                            );
+                        })}
+                    </div>
+
+                    {/* Task Bars (Overlayed for context) */}
+                    <div className="absolute w-full" style={{ left: 0, top: (USER_ROW_HEIGHT - 20) / 2 }}>
+                        {user.assignedTasks.map((task) => {
+                            const taskStart = task.startDate ? new Date(task.startDate) : startDate;
+                            const taskEnd = task.dueDate ? new Date(task.dueDate) : endDate;
+
+                            // Clamp tasks to the visible month range
+                            const effectiveStartDate = taskStart < startDate ? startDate : taskStart;
+                            const effectiveEndDate = taskEnd > endDate ? endDate : taskEnd;
+
+                            const startOffset = differenceInDays(effectiveStartDate, startDate);
+                            const duration = differenceInDays(effectiveEndDate, effectiveStartDate) + 1;
+
+                            if (duration <= 0) return null; // Don't render tasks outside the view
+
+                            const taskLeft = startOffset * DAY_WIDTH;
+                            const taskWidth = duration * DAY_WIDTH - 4; // a little padding
+
+                            return (
+                                <Tooltip key={task.id}>
+                                    <TooltipTrigger asChild>
+                                        <div
+                                            className="absolute bg-blue-600 text-white p-1 text-xs rounded-md overflow-hidden whitespace-nowrap hover:bg-blue-700 cursor-pointer opacity-70"
+                                            style={{
+                                                left: taskLeft,
+                                                width: taskWidth,
+                                                height: 20,
+                                            }}
+                                        >
+                                            {task.title} ({task.estimatedHours?.toNumber() || 0}h)
+                                        </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p className="font-bold">{task.title}</p>
+                                        <p>Project: {task.project.name}</p>
+                                        <p>Estimated: {task.estimatedHours?.toNumber() || 0} hours</p>
+                                        <p>Duration: {format(taskStart, 'MMM d')} - {format(taskEnd, 'MMM d')}</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            );
+                        })}
+                    </div>
+                </div>
+            ))}
+        </div>
+    </>
+  );
+
+  const renderWeeklyView = () => (
+    <>
+        {/* Timeline Header */}
+        <div className="sticky top-0 z-10 flex bg-white dark:bg-gray-900 border-b pb-2 mb-2">
+            {weeks.map((week, index) => (
+                <div
+                    key={index}
+                    className="flex-shrink-0 text-center"
+                    style={{ width: WEEK_WIDTH }}
+                >
+                    <div className="text-xs text-gray-500">Week {format(week, "w")}</div>
+                    <div className="text-sm font-semibold">{format(week, "MMM d")} - {format(endOfWeek(week, { weekStartsOn: 1 }), "MMM d")}</div>
+                </div>
+            ))}
+        </div>
+
+        {/* Grid Lines */}
+        <div className="absolute top-0 left-0 w-full h-full -z-10">
+            {weeks.map((_week, index) => (
+                <div
+                    key={index}
+                    className="absolute h-full border-r border-gray-100 dark:border-gray-800"
+                    style={{ left: index * WEEK_WIDTH, width: WEEK_WIDTH }}
+                ></div>
+            ))}
+        </div>
+
+        {/* User Rows and Weekly Workload Cells */}
+        <div className="relative space-y-1">
+            {processedData.map((user) => {
+                const weeklyAllocations = weeks.map(week => {
+                    const weekStart = startOfWeek(week, { weekStartsOn: 1 });
+                    const weekEnd = endOfWeek(week, { weekStartsOn: 1 });
+                    const weekDays = eachDayOfInterval({ start: weekStart, end: weekEnd });
+                    const totalHours = weekDays.reduce((acc, day) => {
+                        const dateString = format(day, 'yyyy-MM-dd');
+                        return acc + (user.dailyAllocations[dateString] || 0);
+                    }, 0);
+                    return totalHours;
+                });
+
+                return (
+                    <div
+                        key={user.id}
+                        className="relative flex items-center"
+                        style={{ height: USER_ROW_HEIGHT }}
+                    >
+                        {/* User Label (Sticky) */}
+                        <div className="sticky left-0 z-10 w-32 pr-4 font-semibold text-sm bg-white dark:bg-gray-900 truncate">
+                            {user.name || user.email}
+                        </div>
+
+                        {/* Weekly Workload Cells */}
+                        <div className="absolute w-full flex" style={{ left: 0 }}>
+                            {weeklyAllocations.map((allocated, weekIndex) => {
+                                const capacity = user.dailyCapacity * 7;
+                                const remaining = capacity - allocated;
+
+                                let bgColor = 'bg-gray-100'; // Default
+                                let textColor = 'text-gray-800';
+                                if (allocated > capacity) {
+                                    bgColor = 'bg-red-200';
+                                    textColor = 'text-red-800';
+                                } else if (allocated > 0) {
+                                    bgColor = 'bg-green-200';
+                                    textColor = 'text-green-800';
+                                }
+
+                                return (
+                                    <Tooltip key={weekIndex}>
+                                        <TooltipTrigger asChild>
+                                            <div
+                                                className={cn(
+                                                    "flex-shrink-0 flex items-center justify-center text-xs font-medium border-r border-gray-200 dark:border-gray-700",
+                                                    bgColor, textColor
+                                                )}
+                                                style={{ width: WEEK_WIDTH, height: USER_ROW_HEIGHT }}
+                                            >
+                                                {allocated > 0 ? allocated.toFixed(1) : '-'}
+                                            </div>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p className="font-bold">Week {format(weeks[weekIndex], "w")}</p>
+                                            <p>Allocated: {allocated.toFixed(2)} hours</p>
+                                            <p>Capacity: {capacity} hours</p>
+                                            <p>Remaining: {remaining.toFixed(2)} hours</p>
+                                            {allocated > capacity && <p className="text-red-500">Over-allocated!</p>}
+                                        </TooltipContent>
+                                    </Tooltip>
+                                );
+                            })}
+                        </div>
+                    </div>
+                );
+            })}
+        </div>
+    </>
+  );
+
   return (
     <TooltipProvider>
       <ScrollArea className="h-[650px] w-full border rounded-md p-2">
         <div className="relative" style={{ width: chartWidth }}>
-          {/* Timeline Header */}
-          <div className="sticky top-0 z-10 flex bg-white dark:bg-gray-900 border-b pb-2 mb-2">
-            {days.map((day, index) => (
-              <div
-                key={index}
-                className="flex-shrink-0 text-center"
-                style={{ width: DAY_WIDTH }}
-              >
-                <div className="text-xs text-gray-500">{format(day, "E")}</div>
-                <div className="text-sm font-semibold">{format(day, "d")}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* Grid Lines */}
-          <div className="absolute top-0 left-0 w-full h-full -z-10">
-            {days.map((_day, index) => (
-              <div
-                key={index}
-                className="absolute h-full border-r border-gray-100 dark:border-gray-800"
-                style={{ left: index * DAY_WIDTH, width: DAY_WIDTH }}
-              ></div>
-            ))}
-          </div>
-
-          {/* User Rows and Daily Workload Cells */}
-          <div className="relative space-y-1">
-            {processedData.map((user) => {
-              return (
-                <div
-                  key={user.id}
-                  className="relative flex items-center"
-                  style={{ height: USER_ROW_HEIGHT }}
-                >
-                  {/* User Label (Sticky) */}
-                  <div className="sticky left-0 z-10 w-32 pr-4 font-semibold text-sm bg-white dark:bg-gray-900 truncate">
-                    {user.name || user.email}
-                  </div>
-
-                  {/* Daily Workload Cells */}
-                  <div className="absolute w-full flex" style={{ left: 0 }}>
-                    {days.map((day, dayIndex) => {
-                      const dateString = format(day, 'yyyy-MM-dd');
-                      const allocated = user.dailyAllocations[dateString] || 0;
-                      const capacity = user.dailyCapacity;
-                      const remaining = capacity - allocated;
-
-                      let bgColor = 'bg-gray-100'; // Default
-                      let textColor = 'text-gray-800';
-                      if (allocated > capacity) {
-                        bgColor = 'bg-red-200';
-                        textColor = 'text-red-800';
-                      } else if (allocated > 0) {
-                        bgColor = 'bg-green-200';
-                        textColor = 'text-green-800';
-                      }
-
-                      return (
-                        <Tooltip key={dayIndex}>
-                          <TooltipTrigger asChild>
-                            <div
-                              className={cn(
-                                "flex-shrink-0 flex items-center justify-center text-xs font-medium border-r border-gray-200 dark:border-gray-700",
-                                bgColor, textColor
-                              )}
-                              style={{ width: DAY_WIDTH, height: USER_ROW_HEIGHT }}
-                            >
-                              {allocated > 0 ? allocated : '-'}
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p className="font-bold">{format(day, 'MMM d, yyyy')}</p>
-                            <p>Allocated: {allocated} hours</p>
-                            <p>Capacity: {capacity} hours</p>
-                            <p>Remaining: {remaining.toFixed(2)} hours</p>
-                            {allocated > capacity && <p className="text-red-500">Over-allocated!</p>}
-                          </TooltipContent>
-                        </Tooltip>
-                      );
-                    })}
-                  </div>
-
-                  {/* Task Bars (Overlayed for context) */}
-                  <div className="absolute w-full" style={{ left: 0, top: (USER_ROW_HEIGHT - 20) / 2 }}>
-                    {user.assignedTasks.map((task) => {
-                      const taskStart = task.startDate ? new Date(task.startDate) : startDate;
-                      const taskEnd = task.dueDate ? new Date(task.dueDate) : endDate;
-
-                      // Clamp tasks to the visible month range
-                      const effectiveStartDate = taskStart < startDate ? startDate : taskStart;
-                      const effectiveEndDate = taskEnd > endDate ? endDate : taskEnd;
-
-                      const startOffset = differenceInDays(effectiveStartDate, startDate);
-                      const duration = differenceInDays(effectiveEndDate, effectiveStartDate) + 1;
-
-                      if (duration <= 0) return null; // Don't render tasks outside the view
-
-                      const taskLeft = startOffset * DAY_WIDTH;
-                      const taskWidth = duration * DAY_WIDTH - 4; // a little padding
-
-                      return (
-                        <Tooltip key={task.id}>
-                          <TooltipTrigger asChild>
-                            <div
-                              className="absolute bg-blue-600 text-white p-1 text-xs rounded-md overflow-hidden whitespace-nowrap hover:bg-blue-700 cursor-pointer opacity-70"
-                              style={{
-                                left: taskLeft,
-                                width: taskWidth,
-                                height: 20,
-                              }}
-                            >
-                              {task.title} ({task.estimatedHours?.toNumber() || 0}h)
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p className="font-bold">{task.title}</p>
-                            <p>Project: {task.project.name}</p>
-                            <p>Estimated: {task.estimatedHours?.toNumber() || 0} hours</p>
-                            <p>Duration: {format(taskStart, 'MMM d')} - {format(taskEnd, 'MMM d')}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          {view === 'monthly' ? renderMonthlyView() : renderWeeklyView()}
         </div>
       </ScrollArea>
     </TooltipProvider>

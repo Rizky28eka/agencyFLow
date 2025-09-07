@@ -20,6 +20,8 @@ import {
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useEffect, useState } from "react";
+import { Separator } from "@/components/ui/separator";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 export default function QuotationDetailsPage() {
     const params = useParams();
@@ -95,9 +97,12 @@ export default function QuotationDetailsPage() {
     }
 
     return (
-        <div className="container mx-auto py-10">
-            <div className="flex justify-between items-center mb-6">
-                <h1 className="text-3xl font-bold">Quotation #{quotation.quotationNumber}</h1>
+        <main className="flex-1 space-y-4 p-8 md:p-10">
+            <div className="flex items-center justify-between space-y-2">
+                <div>
+                    <h2 className="text-2xl font-bold tracking-tight">Quotation #{quotation.quotationNumber}</h2>
+                    <p className="text-muted-foreground">View details and manage the quotation.</p>
+                </div>
                 <div className="space-x-2">
                     {quotation.status === "APPROVED" && !quotation.projectId && (
                         <Button onClick={handleConvert}>Convert to Project</Button>
@@ -125,76 +130,131 @@ export default function QuotationDetailsPage() {
                 </div>
             </div>
 
-            <Card className="mb-6">
-                <CardHeader>
-                    <CardTitle>Details</CardTitle>
-                </CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <p className="text-sm text-gray-500">Client</p>
-                        <p className="text-lg font-medium">{quotation.client.name}</p>
-                    </div>
-                    <div>
-                        <p className="text-sm text-gray-500">Status</p>
-                        <Badge variant={statusVariant}>{quotation.status}</Badge>
-                    </div>
-                    <div>
-                        <p className="text-sm text-gray-500">Issue Date</p>
-                        <p className="text-lg font-medium">{format(new Date(quotation.issueDate), "PPP")}</p>
-                    </div>
-                    <div>
-                        <p className="text-sm text-gray-500">Expiry Date</p>
-                        <p className="text-lg font-medium">{quotation.expiryDate ? format(new Date(quotation.expiryDate), "PPP") : "N/A"}</p>
-                    </div>
-                    <div>
-                        <p className="text-sm text-gray-500">Total Amount</p>
-                        <p className="text-lg font-medium">
-                            {new Intl.NumberFormat("en-US", {
-                                style: "currency",
-                                currency: quotation.currency,
-                            }).format(parseFloat(quotation.totalAmount.toString()))}
-                        </p>
-                    </div>
-                    {quotation.projectId && (
-                        <div>
-                            <p className="text-sm text-gray-500">Linked Project</p>
-                            <Link href={`/internal/projects/${quotation.projectId}`} className="text-blue-600 hover:underline">
-                                View Project
-                            </Link>
+            <div className="grid gap-6 md:grid-cols-2">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Client Information</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="flex justify-between">
+                            <span className="text-muted-foreground">Client Name</span>
+                            <span>{quotation.client.name}</span>
                         </div>
-                    )}
-                </CardContent>
-            </Card>
+                        <div className="flex justify-between">
+                            <span className="text-muted-foreground">Client Email</span>
+                            <span>{quotation.client.email}</span>
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Quotation Details</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="flex justify-between items-center">
+                            <span className="text-muted-foreground">Status</span>
+                            <Badge variant={statusVariant}>{quotation.status}</Badge>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="text-muted-foreground">Issue Date</span>
+                            <span>{format(new Date(quotation.issueDate), "PPP")}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="text-muted-foreground">Expiry Date</span>
+                            <span>{quotation.expiryDate ? format(new Date(quotation.expiryDate), "PPP") : "N/A"}</span>
+                        </div>
+                        {quotation.projectId && (
+                            <div className="flex justify-between">
+                                <span className="text-muted-foreground">Linked Project</span>
+                                <Link href={`/internal/projects/${quotation.projectId}`} className="text-blue-600 hover:underline">
+                                    View Project
+                                </Link>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+            </div>
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Items</CardTitle>
+                    <CardTitle>Quotation Items</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="space-y-4">
-                        {quotation.items.map((item: Quotation['items'][number]) => (
-                            <div key={item.id} className="border p-4 rounded-md">
-                                <p className="font-medium">{item.description}</p>
-                                <p className="text-sm text-gray-600">
-                                    {item.quantity} x{" "}
-                                    {new Intl.NumberFormat("en-US", {
-                                        style: "currency",
-                                        currency: item.currency,
-                                    }).format(parseFloat(item.unitPrice.toString()))}
-                                    {item.discountPct ? ` (-${item.discountPct}%)` : ""}
-                                    {item.taxPct ? ` (+${item.taxPct}%)` : ""}
-                                </p>
-                                <p className="text-right font-semibold">
-                                    {new Intl.NumberFormat("en-US", {
-                                        style: "currency",
-                                        currency: item.currency,
-                                    }).format(parseFloat(item.lineTotal.toString()))}
-                                </p>
-                            </div>
-                        ))}
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead className="w-[50%]">Description</TableHead>
+                                <TableHead className="text-right">Quantity</TableHead>
+                                <TableHead className="text-right">Unit Price</TableHead>
+                                <TableHead className="text-right">Discount</TableHead>
+                                <TableHead className="text-right">Tax</TableHead>
+                                <TableHead className="text-right">Line Total</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {quotation.items.map((item: Quotation['items'][number]) => (
+                                <TableRow key={item.id}>
+                                    <TableCell className="font-medium">{item.description}</TableCell>
+                                    <TableCell className="text-right">{item.quantity}</TableCell>
+                                    <TableCell className="text-right">
+                                        {new Intl.NumberFormat("en-US", {
+                                            style: "currency",
+                                            currency: item.currency,
+                                        }).format(parseFloat(item.unitPrice.toString()))}
+                                    </TableCell>
+                                    <TableCell className="text-right">{item.discountPct ? `${item.discountPct}%` : '-'}</TableCell>
+                                    <TableCell className="text-right">{item.taxPct ? `${item.taxPct}%` : '-'}</TableCell>
+                                    <TableCell className="text-right">
+                                        {new Intl.NumberFormat("en-US", {
+                                            style: "currency",
+                                            currency: item.currency,
+                                        }).format(parseFloat(item.lineTotal.toString()))}
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                    <Separator className="my-4" />
+                    <div className="grid gap-2 text-right">
+                        <div className="flex justify-end items-center space-x-4">
+                            <span className="text-muted-foreground">Subtotal</span>
+                            <span className="font-medium">
+                                {new Intl.NumberFormat("en-US", {
+                                    style: "currency",
+                                    currency: quotation.currency,
+                                }).format(parseFloat(quotation.subtotal.toString()))}
+                            </span>
+                        </div>
+                        <div className="flex justify-end items-center space-x-4">
+                            <span className="text-muted-foreground">Discount</span>
+                            <span className="font-medium">
+                                - {new Intl.NumberFormat("en-US", {
+                                    style: "currency",
+                                    currency: quotation.currency,
+                                }).format(parseFloat(quotation.discount.toString()))}
+                            </span>
+                        </div>
+                        <div className="flex justify-end items-center space-x-4">
+                            <span className="text-muted-foreground">Tax</span>
+                            <span className="font-medium">
+                                + {new Intl.NumberFormat("en-US", {
+                                    style: "currency",
+                                    currency: quotation.currency,
+                                }).format(parseFloat(quotation.tax.toString()))}
+                            </span>
+                        </div>
+                        <div className="flex justify-end items-center space-x-4 text-lg font-bold">
+                            <span>Total</span>
+                            <span>
+                                {new Intl.NumberFormat("en-US", {
+                                    style: "currency",
+                                    currency: quotation.currency,
+                                }).format(parseFloat(quotation.totalAmount.toString()))}
+                            </span>
+                        </div>
                     </div>
                 </CardContent>
             </Card>
-        </div>
+        </main>
     );
 }
