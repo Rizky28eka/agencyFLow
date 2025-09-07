@@ -1,5 +1,4 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// prisma/schema.prisma
 
 generator client {
   provider = "prisma-client-js"
@@ -10,76 +9,9 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ===================================================================
-// Core Tenancy and User Models
-// ===================================================================
-
-model Organization {
-  id          String    @id @default(cuid())
-  name        String
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  users       User[]
-  clients     Client[]
-  projects    Project[]
-  invoices    Invoice[]
-  quotations  Quotation[]
-  services    Service[]
-  expenses    Expense[]
-  notifications Notification[]
-  files       File[] // Added for File Sharing
-  activities  Activity[] // Added for Activity Feed
-  contracts   Contract[]
-}
-
-model User {
-  id           String    @id @default(cuid())
-  email        String    @unique
-  name         String?
-  image        String?
-  passwordHash String
-  passwordResetToken String?
-  passwordResetExpires DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  roleId       String
-  role         Role      @relation(fields: [roleId], references: [id])
-
-  assignedTasks Task[]
-  notifications Notification[]
-  timeEntries   TimeEntry[] // Added for Time Tracking
-  uploadedFiles File[] // Added for File Sharing
-  activities    Activity[] // Added for Activity Feed
-}
-
-// ===================================================================
-// Notification Model
-// ===================================================================
-
-model Notification {
-  id        String   @id @default(cuid())
-  message   String
-  read      Boolean  @default(false)
-  link      String?
-  createdAt DateTime @default(now())
-
-  recipientId String
-  recipient   User     @relation(fields: [recipientId], references: [id], onDelete: Cascade)
-
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-}
-
-model Role {
-  id    String   @id @default(cuid())
-  name  UserRole @unique // ADMIN, PROJECT_MANAGER, MEMBER, CLIENT
-  users User[]
-}
+// ============================================================
+// Enums
+// ============================================================
 
 enum UserRole {
   ADMIN
@@ -88,59 +20,9 @@ enum UserRole {
   CLIENT
 }
 
-// ===================================================================
-// Client and Project Management Models
-// ===================================================================
-
 enum ClientStatus {
   ACTIVE
   INACTIVE
-}
-
-model Client {
-  id           String    @id @default(cuid())
-  name         String
-  email        String    @unique
-  phone        String?
-  address      String?
-  company      String?
-  status       ClientStatus @default(ACTIVE)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  projects    Project[]
-  quotations  Quotation[]
-  invoices    Invoice[]
-  contracts   Contract[]
-}
-
-model Project {
-  id           String        @id @default(cuid())
-  name         String
-  description  String?
-  status       ProjectStatus @default(PLANNING)
-  budget       Decimal?      @default(0)
-  startDate    DateTime?
-  endDate      DateTime?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-
-  organizationId String
-  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  clientId     String
-  client       Client        @relation(fields: [clientId], references: [id])
-
-  tasks        Task[]
-  invoices     Invoice[]
-  expenses     Expense[]
-  timeEntries  TimeEntry[] // Added for Time Tracking
-  files        File[] // Added for File Sharing
-  activities   Activity[] // Added for Activity Feed
-  contracts    Contract[]
 }
 
 enum ProjectStatus {
@@ -149,67 +31,6 @@ enum ProjectStatus {
   ON_HOLD
   COMPLETED
   CANCELLED
-}
-
-model Contract {
-  id          String         @id @default(cuid())
-  title       String
-  status      ContractStatus @default(DRAFT)
-  startDate   DateTime
-  endDate     DateTime
-  amount      Decimal
-  fileUrl     String         // URL to the stored contract file
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-
-  organizationId String
-  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  clientId    String
-  client      Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
-
-  // A contract can be linked to a project, but it's not mandatory
-  projectId   String?
-  project     Project?       @relation(fields: [projectId], references: [id])
-}
-
-enum ContractStatus {
-  DRAFT
-  ACTIVE
-  EXPIRED
-  TERMINATED
-}
-
-model Task {
-  id          String     @id @default(cuid())
-  title       String
-  description String?
-  status      TaskStatus @default(TO_DO)
-  priority    Priority   @default(MEDIUM)
-  dueDate     DateTime?
-  startDate   DateTime? // New field for task start date
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-
-  projectId   String
-  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-  assigneeId  String?
-  assignee    User?      @relation(fields: [assigneeId], references: [id])
-
-  // New relations for task dependencies
-  dependenciesOn TaskDependency[] @relation("DependsOn")
-  dependentTasks TaskDependency[] @relation("DependentTasks")
-  timeEntries    TimeEntry[] // Added for Time Tracking
-}
-
-model TaskDependency {
-  id           String   @id @default(cuid())
-  dependentId  String
-  dependent    Task     @relation("DependentTasks", fields: [dependentId], references: [id])
-  dependsOnId  String
-  dependsOn    Task     @relation("DependsOn", fields: [dependsOnId], references: [id])
-  createdAt    DateTime @default(now())
 }
 
 enum TaskStatus {
@@ -225,28 +46,6 @@ enum Priority {
   HIGH
 }
 
-// ===================================================================
-// Financial and Pre-Project Models
-// ===================================================================
-
-model Quotation {
-  id          String         @id @default(cuid())
-  status      QuotationStatus @default(DRAFT)
-  totalAmount Decimal
-  issueDate   DateTime
-  expiryDate  DateTime?
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-
-  organizationId String
-  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  clientId    String
-  client      Client         @relation(fields: [clientId], references: [id])
-
-  items       QuotationItem[]
-}
-
 enum QuotationStatus {
   DRAFT
   SENT
@@ -255,145 +54,558 @@ enum QuotationStatus {
   REJECTED
 }
 
-model QuotationItem {
-  id          String    @id @default(cuid())
-  description String
-  quantity    Int
-  unitPrice   Decimal
-
-  quotationId String
-  quotation   Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
-
-  // Link to a reusable service for easy project creation
-  serviceId   String?
-  service     Service?  @relation(fields: [serviceId], references: [id])
-}
-
-// ===================================================================
-// Service Library Model (Bank Item & Jasa)
-// ===================================================================
-
-model Service {
-  id            String          @id @default(cuid())
-  name          String
-  description   String?
-  defaultPrice  Decimal
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
-
-  organizationId String
-  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  // Used in many quotation items
-  quotationItems QuotationItem[]
-}
-
-model Invoice {
-  id            String        @id @default(cuid())
-  invoiceNumber String
-  status        InvoiceStatus @default(DRAFT)
-  totalAmount   Decimal
-  issueDate     DateTime
-  dueDate       DateTime
-  paidDate      DateTime?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-
-  organizationId String
-  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  clientId      String
-  client        Client        @relation(fields: [clientId], references: [id])
-
-  projectId     String
-  project       Project       @relation(fields: [projectId], references: [id])
-}
-
 enum InvoiceStatus {
   DRAFT
   SENT
   PAID
   OVERDUE
   CANCELLED
+  PROCESSING
 }
+
+enum ContractStatus {
+  DRAFT
+  ACTIVE
+  EXPIRED
+  TERMINATED
+}
+
+enum Currency {
+  IDR
+  USD
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  BANK_TRANSFER
+  CARD
+  E_WALLET
+  CASH
+  OTHER
+}
+
+enum NotificationType {
+  GENERAL
+  TASK
+  INVOICE
+  PROJECT
+  CONTRACT
+}
+
+// ============================================================
+// Core Tenancy & Settings
+// ============================================================
+
+model Organization {
+  id          String   @id @default(cuid())
+  name        String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  // Settings ringkas untuk operasional
+  defaultCurrency Currency @default(IDR)
+  timezone        String   @default("Asia/Jakarta")
+  locale          String   @default("id-ID")
+  taxNumber       String?
+  invoicePrefix   String?  // contoh: "INV"
+  quotationPrefix String?  // contoh: "QTN"
+
+  users          User[]
+  clients        Client[]
+  projects       Project[]
+  invoices       Invoice[]
+  quotations     Quotation[]
+  services       Service[]
+  expenses       Expense[]
+  notifications  Notification[]
+  files          File[]
+  activities     Activity[]
+  contracts      Contract[]
+  payments       Payment[]
+
+  @@index([name])
+  @@map("organizations")
+}
+
+model Role {
+  id    String   @id @default(cuid())
+  name  UserRole @unique
+  users User[]
+
+  @@map("roles")
+}
+
+model User {
+  id                   String    @id @default(cuid())
+  email                String    @unique
+  name                 String?
+  image                String?
+  passwordHash         String
+  passwordResetToken   String?
+  passwordResetExpires DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  deletedAt            DateTime?
+  dailyCapacityHours   Decimal?  @db.Decimal(4, 2) // New field for user's daily capacity
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  roleId String
+  role   Role        @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  assignedTasks Task[]
+  notifications Notification[]
+  timeEntries   TimeEntry[]
+  uploadedFiles File[]
+  activities    Activity[]
+  taskComments  TaskComment[] // Added for TaskComment relation
+
+  // Audit helper (opsional): siapa membuat/mengubah — gunakan di app-level
+  @@index([organizationId])
+  @@map("users")
+}
+
+// ============================================================
+// Client & Project
+// ============================================================
+
+model Client {
+  id        String       @id @default(cuid())
+  name      String
+  email     String       @unique
+  phone     String?
+  address   String?
+  company   String?
+  status    ClientStatus @default(ACTIVE)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  deletedAt DateTime?
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  projects    Project[]
+  quotations  Quotation[]
+  invoices    Invoice[]
+  contracts   Contract[]
+
+  @@index([organizationId, status])
+  @@index([name])
+  @@map("clients")
+}
+
+model Project {
+  id           String        @id @default(cuid())
+  name         String
+  description  String?
+  status       ProjectStatus @default(PLANNING)
+  // Budget + currency
+  budget       Decimal?      @db.Decimal(18, 2)
+  budgetCurrency Currency?   @default(IDR)
+  startDate    DateTime?
+  endDate      DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  deletedAt    DateTime?
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  clientId String
+  client   Client       @relation(fields: [clientId], references: [id], onDelete: Restrict)
+
+  tasks        Task[]
+  invoices     Invoice[]
+  expenses     Expense[]
+  timeEntries  TimeEntry[]
+  files        File[]
+  activities   Activity[]
+  contracts    Contract[]
+
+  // Urutan kanban (opsional)
+  sortIndex   Int? @default(0)
+
+  @@index([organizationId, status])
+  @@index([clientId])
+  @@index([name])
+  @@map("projects")
+}
+
+model Contract {
+  id        String         @id @default(cuid())
+  title     String
+  status    ContractStatus @default(DRAFT)
+  startDate DateTime
+  endDate   DateTime
+  amount    Decimal        @db.Decimal(18, 2)
+  currency  Currency       @default(IDR)
+  fileUrl   String
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  deletedAt DateTime?
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  clientId String
+  client   Client       @relation(fields: [clientId], references: [id], onDelete: Restrict)
+
+  projectId String?
+  project   Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, status])
+  @@index([clientId])
+  @@unique([organizationId, title, clientId]) // unik per client di organisasi
+  @@map("contracts")
+}
+
+// ============================================================
+// Tasks
+// ============================================================
+
+model Task {
+  id            String     @id @default(cuid())
+  title         String
+  description   String?
+  status        TaskStatus @default(TO_DO)
+  priority      Priority   @default(MEDIUM)
+  dueDate       DateTime?
+  startDate     DateTime?
+  estimatedHours Decimal?  @db.Decimal(6, 2) // New field for estimated task hours
+  sortIndex     Int?       @default(0) // untuk urutan kolom/board
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  deletedAt     DateTime?
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  assigneeId String?
+  assignee   User?     @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
+
+  dependenciesOn TaskDependency[] @relation("DependsOn")
+  dependentTasks TaskDependency[] @relation("DependentTasks")
+  timeEntries    TimeEntry[]
+  comments       TaskComment[]
+
+  @@index([projectId, status, priority])
+  @@index([assigneeId])
+  @@map("tasks")
+}
+
+model TaskDependency {
+  id           String @id @default(cuid())
+  dependentId  String
+  dependent    Task   @relation("DependentTasks", fields: [dependentId], references: [id], onDelete: Cascade)
+  dependsOnId  String
+  dependsOn    Task   @relation("DependsOn", fields: [dependsOnId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+
+  @@unique([dependentId, dependsOnId]) // cegah duplikasi edge
+  @@map("task_dependencies")
+}
+
+model TaskComment {
+  id        String   @id @default(cuid())
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  taskId String
+  task   Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  authorId String
+  author   User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@map("task_comments")
+}
+
+// ============================================================
+// Sales: Quotation → Invoice → Payment
+// ============================================================
+
+model Service {
+  id           String    @id @default(cuid())
+  name         String
+  description  String?
+  defaultPrice Decimal   @db.Decimal(18, 2)
+  currency     Currency  @default(IDR)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  quotationItems QuotationItem[]
+  invoiceItems   InvoiceItem[] // Added for InvoiceItem relation
+
+  @@index([organizationId, name])
+  @@map("services")
+}
+
+model Quotation {
+  id          String           @id @default(cuid())
+  quotationNumber String       // nomor dokumen, unik per org
+  status      QuotationStatus  @default(DRAFT)
+  // Ringkasan nilai
+  subtotal    Decimal          @db.Decimal(18, 2) @default(0)
+  discount    Decimal          @db.Decimal(18, 2) @default(0)
+  tax         Decimal          @db.Decimal(18, 2) @default(0)
+  totalAmount Decimal          @db.Decimal(18, 2)
+  currency    Currency         @default(IDR)
+
+  issueDate   DateTime
+  expiryDate  DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  deletedAt   DateTime?
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  clientId String
+  client   Client       @relation(fields: [clientId], references: [id], onDelete: Restrict)
+
+  items    QuotationItem[]
+  invoices Invoice[] // Added for Invoice relation
+
+  @@unique([organizationId, quotationNumber])
+  @@index([organizationId, status])
+  @@index([clientId])
+  @@map("quotations")
+}
+
+model QuotationItem {
+  id          String   @id @default(cuid())
+  description String
+  quantity    Int      @default(1)
+  unitPrice   Decimal  @db.Decimal(18, 2)
+  currency    Currency @default(IDR)
+  discountPct Decimal? @db.Decimal(5, 2) // 0-100
+  taxPct      Decimal? @db.Decimal(5, 2)
+  lineTotal   Decimal  @db.Decimal(18, 2) // simpan total baris untuk audit
+
+  quotationId String
+  quotation   Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+
+  serviceId   String?
+  service     Service?  @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+
+  @@index([quotationId])
+  @@map("quotation_items")
+}
+
+model Invoice {
+  id             String        @id @default(cuid())
+  invoiceNumber  String
+  status         InvoiceStatus @default(DRAFT)
+
+  subtotal       Decimal       @db.Decimal(18, 2) @default(0)
+  discount       Decimal       @db.Decimal(18, 2) @default(0)
+  tax            Decimal       @db.Decimal(18, 2) @default(0)
+  totalAmount    Decimal       @db.Decimal(18, 2)
+  // jumlah terbayar via Payments (aggregasi app-level)
+  currency       Currency      @default(IDR)
+
+  issueDate      DateTime
+  dueDate        DateTime
+  paidDate       DateTime?
+
+  externalPaymentIntentId String? @unique // mis. Stripe/Xendit/others
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  deletedAt      DateTime?
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Restrict)
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Restrict)
+
+  quotationId String? // jika dibuat dari quotation
+  quotation   Quotation? @relation(fields: [quotationId], references: [id], onDelete: SetNull)
+
+  items    InvoiceItem[]
+  payments Payment[]
+
+  @@unique([organizationId, invoiceNumber])
+  @@index([organizationId, status, dueDate])
+  @@index([clientId])
+  @@index([projectId])
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id          String   @id @default(cuid())
+  description String
+  quantity    Int      @default(1)
+  unitPrice   Decimal  @db.Decimal(18, 2)
+  currency    Currency @default(IDR)
+  discountPct Decimal? @db.Decimal(5, 2)
+  taxPct      Decimal? @db.Decimal(5, 2)
+  lineTotal   Decimal  @db.Decimal(18, 2)
+
+  invoiceId String
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  serviceId String?
+  service   Service? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+
+  @@index([invoiceId])
+  @@map("invoice_items")
+}
+
+model Payment {
+  id             String         @id @default(cuid())
+  amount         Decimal        @db.Decimal(18, 2)
+  currency       Currency       @default(IDR)
+  status         PaymentStatus  @default(PENDING)
+  method         PaymentMethod  @default(BANK_TRANSFER)
+  referenceCode  String?        // kode dari gateway/bank
+  notes          String?
+  paidAt         DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  invoiceId String
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status])
+  @@index([invoiceId])
+  @@map("payments")
+}
+
+// ============================================================
+// Expenses & Time Tracking
+// ============================================================
 
 model Expense {
   id          String   @id @default(cuid())
   description String
-  amount      Decimal
+  amount      Decimal  @db.Decimal(18, 2)
+  currency    Currency @default(IDR)
   date        DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
 
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  projectId   String
-  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Restrict)
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  @@index([organizationId, date])
+  @@index([projectId])
+  @@map("expenses")
 }
-
-// ===================================================================
-// Time Tracking Model
-// ===================================================================
 
 model TimeEntry {
   id          String    @id @default(cuid())
-  hours       Decimal
+  hours       Decimal   @db.Decimal(6, 2)
   date        DateTime
   description String?
+  hourlyRate  Decimal?  @db.Decimal(18, 2) // optional untuk billing
+  currency    Currency? @default(IDR)
+
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
 
-  userId      String
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  taskId      String? // Optional: if time is logged against a specific task
-  task        Task?     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskId   String?
+  task     Task?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
 
-  projectId   String
-  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Restrict)
+
+  @@index([projectId, date])
+  @@index([userId, date])
+  @@map("time_entries")
 }
 
-// ===================================================================
-// File Sharing Model
-// ===================================================================
+// ============================================================
+// Files, Activities, Notifications
+// ============================================================
 
 model File {
-  id             String    @id @default(cuid())
-  name           String
-  url            String    // URL or path to the stored file
-  fileType       String?   // e.g., "image/jpeg", "application/pdf"
-  size           Int?      // File size in bytes
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  id        String   @id @default(cuid())
+  name      String
+  url       String
+  fileType  String?
+  size      Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
 
-  projectId      String
-  project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  uploadedById   String
-  uploadedBy     User      @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
+  uploadedById String
+  uploadedBy   User    @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
 
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([uploadedById])
+  @@map("files")
 }
 
-// ===================================================================
-// Activity Feed Model
-// ===================================================================
-
 model Activity {
-  id             String    @id @default(cuid())
-  type           String    // e.g., "TASK_CREATED", "FILE_UPLOADED", "EXPENSE_ADDED"
-  description    String    // A human-readable message describing the activity
-  createdAt      DateTime  @default(now())
+  id          String   @id @default(cuid())
+  type        String
+  description String
+  createdAt   DateTime @default(now())
 
-  projectId      String
-  project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  userId         String
-  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@index([projectId, createdAt])
+  @@map("activities")
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  type      NotificationType @default(GENERAL)
+  message   String
+  read      Boolean          @default(false)
+  link      String?
+  createdAt DateTime         @default(now())
+
+  recipientId String
+  recipient   User          @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([recipientId, read])
+  @@index([organizationId, createdAt])
+  @@map("notifications")
 }

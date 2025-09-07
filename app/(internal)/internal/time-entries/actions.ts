@@ -16,7 +16,7 @@ async function getAuthenticatedUser() {
     if (!session || !session.user?.id || !session.user.organizationId || !session.user.role) {
         throw new Error("Unauthorized: User not authenticated.");
     }
-    const user = await prisma.user.findUnique({ 
+    const user = await prisma.user.findUnique({
         where: { id: session.user.id },
         include: { role: true }
     });

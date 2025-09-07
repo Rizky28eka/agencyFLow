@@ -16,8 +16,8 @@ import { IconCalendar as IconCalendarTabler } from "@tabler/icons-react"
 import { cn } from "@/lib/utils"
 import { format } from "date-fns"
 import { toast } from "sonner"
-import { addTask, updateTask, deleteTask } from "./actions"
-import { Task, User } from "./actions"
+import { addTask, updateTask, deleteTask, addTaskDependency, removeTaskDependency, getProjectTasksForDependencies } from "./actions"
+import { Task, User, TaskWithRelations } from "./actions" // Import TaskWithRelations
 
 enum TaskStatus {
   TO_DO = "TO_DO",
@@ -39,16 +39,35 @@ const UNASSIGNED_VALUE = "UNASSIGNED";
 
 type TaskFormDialogProps = {
   projectId: string;
-  task?: Task;
+  task?: TaskWithRelations; // Use TaskWithRelations
   trigger?: React.ReactElement;
   onSuccess?: () => void;
-  users: User[]; // Add users prop
+  users: User[];
 };
 
 export function TaskFormDialog({ projectId, task, trigger, onSuccess, users }: TaskFormDialogProps) {
   const [open, setOpen] = React.useState(false);
   const [isPending, startTransition] = React.useTransition();
   const [dateOpen, setDateOpen] = React.useState(false);
+  const [availableDependencies, setAvailableDependencies] = React.useState<{ id: string; title: string }[]>([]);
+  const [selectedDependencies, setSelectedDependencies] = React.useState<string[]>([]);
+
+  React.useEffect(() => {
+    if (open) {
+      // Fetch available tasks for dependencies
+      startTransition(async () => {
+        const tasks = await getProjectTasksForDependencies(projectId, task?.id);
+        setAvailableDependencies(tasks);
+      });
+
+      // Set initial selected dependencies if editing a task
+      if (task?.dependenciesOn) {
+        setSelectedDependencies(task.dependenciesOn.map(dep => dep.dependsOnId));
+      } else {
+        setSelectedDependencies([]);
+      }
+    }
+  }, [open, projectId, task?.id, task?.dependenciesOn]);
 
   const [form, setForm] = React.useState({
     title: task?.title || "",
@@ -56,11 +75,17 @@ export function TaskFormDialog({ projectId, task, trigger, onSuccess, users }: T
     status: task?.status || TaskStatus.TO_DO,
     priority: task?.priority || Priority.MEDIUM,
     dueDate: task?.dueDate ? new Date(task.dueDate) : undefined,
+    startDate: task?.startDate ? new Date(task.startDate) : undefined, // Add startDate
+    estimatedHours: task?.estimatedHours?.toString() || "", // Add estimatedHours
     assigneeId: task?.assigneeId || UNASSIGNED_VALUE, // Default to UNASSIGNED_VALUE
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { id, value } = e.target;
+    setForm({ ...form, [id]: value });
+  };
+
+  const handleNumberChange = (id: string, value: string) => {
     setForm({ ...form, [id]: value });
   };
 
@@ -72,29 +97,56 @@ export function TaskFormDialog({ projectId, task, trigger, onSuccess, users }: T
     setForm({ ...form, dueDate: date });
   };
 
-  const handleSubmit = () => {
-    startTransition(() => {
+  // Move handleSubmit logic here to be within the component scope
+  async function handleSubmit() {
+    startTransition(async () => {
       const dataToSubmit = {
         ...form,
-        assigneeId: form.assigneeId === UNASSIGNED_VALUE ? null : form.assigneeId, // Convert UNASSIGNED_VALUE to null
-        dueDate: form.dueDate || null, // Convert undefined to null for optional field
+        assigneeId: form.assigneeId === UNASSIGNED_VALUE ? null : form.assigneeId,
+        dueDate: form.dueDate || null,
+        startDate: form.startDate || null, // Pass startDate
+        estimatedHours: form.estimatedHours ? parseFloat(form.estimatedHours) : null, // Convert to number
       };
 
-      const promise = task
-        ? updateTask(task.id, projectId, dataToSubmit)
-        : addTask({ ...dataToSubmit, projectId });
+      try {
+        let currentTaskId: string;
 
-      promise
-        .then(() => {
-          setOpen(false);
-          toast.success(task ? "Task updated" : "Task added");
-          onSuccess?.();
-        })
-        .catch((error) => {
-          toast.error(error.message);
-        });
+        if (task) {
+          // Update existing task
+          await updateTask(task.id, projectId, dataToSubmit);
+          currentTaskId = task.id;
+        } else {
+          // Add new task
+          const newTask = await addTask({ ...dataToSubmit, projectId });
+          currentTaskId = newTask.id; // Assuming addTask returns the new task with an ID
+        }
+
+        // Handle dependencies
+        const existingDependencyIds = task?.dependenciesOn?.map(dep => dep.dependsOnId) || [];
+
+        const dependenciesToAdd = selectedDependencies.filter(
+          (depId) => !existingDependencyIds.includes(depId)
+        );
+        const dependenciesToRemove = existingDependencyIds.filter(
+          (depId) => !selectedDependencies.includes(depId)
+        );
+
+        for (const depId of dependenciesToAdd) {
+          await addTaskDependency(currentTaskId, depId);
+        }
+
+        for (const depId of dependenciesToRemove) {
+          await removeTaskDependency(currentTaskId, depId);
+        }
+
+        setOpen(false);
+        toast.success(task ? "Task updated" : "Task added");
+        onSuccess?.();
+      } catch (error: any) {
+        toast.error(error.message);
+      }
     });
-  };
+  }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -110,6 +162,10 @@ export function TaskFormDialog({ projectId, task, trigger, onSuccess, users }: T
           <div className="grid gap-2">
             <Label htmlFor="title">Title</Label>
             <Input id="title" value={form.title} onChange={handleChange} placeholder="e.g. Design the homepage" />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="estimatedHours">Estimated Hours</Label>
+            <Input id="estimatedHours" type="number" value={form.estimatedHours} onChange={(e) => handleNumberChange("estimatedHours", e.target.value)} placeholder="e.g. 8" />
           </div>
           <div className="grid gap-2">
             <Label htmlFor="description">Description</Label>
@@ -167,6 +223,55 @@ export function TaskFormDialog({ projectId, task, trigger, onSuccess, users }: T
               </PopoverContent>
             </Popover>
           </div>
+          <div className="grid gap-2">
+            <Label htmlFor="dependencies">Dependencies</Label>
+            <Select
+              value={selectedDependencies.length > 0 ? selectedDependencies[0] : ""} // Display first selected or empty
+              onValueChange={(value) => {
+                // Toggle selection for multi-select like behavior
+                setSelectedDependencies(prev =>
+                  prev.includes(value)
+                    ? prev.filter(id => id !== value)
+                    : [...prev, value]
+                );
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select dependencies">
+                  {selectedDependencies.length > 0
+                    ? selectedDependencies.map(id => availableDependencies.find(dep => dep.id === id)?.title || '').join(', ')
+                    : "Select dependencies"}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {availableDependencies.map((dep) => (
+                  <SelectItem key={dep.id} value={dep.id}>
+                    {dep.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {selectedDependencies.map(id => {
+                const depTask = availableDependencies.find(dep => dep.id === id);
+                return depTask ? (
+                  <span key={id} className="inline-flex items-center rounded-md bg-gray-50 px-2 py-1 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-500/10">
+                    {depTask.title}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDependencies(prev => prev.filter(depId => depId !== id))}
+                      className="ml-1 -mr-0.5 h-3.5 w-3.5 rounded-full inline-flex items-center justify-center text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                    >
+                      <span className="sr-only">Remove</span>
+                      <svg className="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
+                        <path strokeLinecap="round" strokeWidth="1.5" d="M1 1l6 6m0-6L1 7" />
+                      </svg>
+                    </button>
+                  </span>
+                ) : null;
+              })}
+            </div>
+          </div>
         </div>
         <DialogFooter>
           <Button onClick={handleSubmit} disabled={isPending}>
@@ -176,6 +281,55 @@ export function TaskFormDialog({ projectId, task, trigger, onSuccess, users }: T
       </DialogContent>
     </Dialog>
   );
+
+  // Move handleSubmit logic here to be within the component scope
+  async function handleSubmit() {
+    startTransition(async () => {
+      const dataToSubmit = {
+        ...form,
+        assigneeId: form.assigneeId === UNASSIGNED_VALUE ? null : form.assigneeId,
+        dueDate: form.dueDate || null,
+      };
+
+      try {
+        let currentTaskId: string;
+
+        if (task) {
+          // Update existing task
+          await updateTask(task.id, projectId, dataToSubmit);
+          currentTaskId = task.id;
+        } else {
+          // Add new task
+          const newTask = await addTask({ ...dataToSubmit, projectId });
+          currentTaskId = newTask.id; // Assuming addTask returns the new task with an ID
+        }
+
+        // Handle dependencies
+        const existingDependencyIds = task?.dependenciesOn?.map(dep => dep.dependsOnId) || [];
+
+        const dependenciesToAdd = selectedDependencies.filter(
+          (depId) => !existingDependencyIds.includes(depId)
+        );
+        const dependenciesToRemove = existingDependencyIds.filter(
+          (depId) => !selectedDependencies.includes(depId)
+        );
+
+        for (const depId of dependenciesToAdd) {
+          await addTaskDependency(currentTaskId, depId);
+        }
+
+        for (const depId of dependenciesToRemove) {
+          await removeTaskDependency(currentTaskId, depId);
+        }
+
+        setOpen(false);
+        toast.success(task ? "Task updated" : "Task added");
+        onSuccess?.();
+      } catch (error: any) {
+        toast.error(error.message);
+      }
+    });
+  }
 }
 
 type TaskActionsProps = {

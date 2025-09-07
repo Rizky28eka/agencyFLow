@@ -54,7 +54,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { getClients, addClient, updateClient, deleteClient } from "./actions"
-import { Client } from "@prisma/client"
+import { Client } from "@prisma/client";
 import { Separator } from "@/components/ui/separator"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList, CommandSeparator } from "@/components/ui/command"
 
@@ -126,6 +126,16 @@ export default function ClientsPage() {
       accessorKey: "email",
       header: "Email",
       cell: ({ row }) => <div>{row.getValue("email")}</div>,
+    },
+    {
+        accessorKey: "phone",
+        header: "Phone",
+        cell: ({ row }) => <div>{row.getValue("phone")}</div>,
+    },
+    {
+        accessorKey: "address",
+        header: "Address",
+        cell: ({ row }) => <div>{row.getValue("address")}</div>,
     },
     {
         accessorKey: "company",
@@ -502,12 +512,14 @@ type FormState = {
     email: string;
     company: string | null;
     status: 'ACTIVE' | 'INACTIVE';
+    phone: string | null;
+    address: string | null;
 }
 
 function ClientFormDialog({ client, trigger }: { client?: Client, trigger?: React.ReactElement }) {
     const [open, setOpen] = React.useState(false)
     const [isPending, startTransition] = React.useTransition()
-    const [form, setForm] = React.useState<FormState>(client ? { ...client, company: client.company || null } : { name: "", email: "", company: null, status: "ACTIVE" })
+    const [form, setForm] = React.useState<FormState>(client ? { ...client, company: client.company || null, phone: client.phone || null, address: client.address || null } : { name: "", email: "", company: null, status: "ACTIVE", phone: null, address: null })
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setForm({ ...form, [e.target.id]: e.target.value })
@@ -519,7 +531,7 @@ function ClientFormDialog({ client, trigger }: { client?: Client, trigger?: Reac
 
     const handleSubmit = () => {
         startTransition(() => {
-            const clientData = { ...form, company: form.company || '' };
+            const clientData = { ...form, company: form.company || '', phone: form.phone || null, address: form.address || null };
             if (client) {
                 updateClient(client.id, clientData)
             } else {
@@ -553,6 +565,14 @@ function ClientFormDialog({ client, trigger }: { client?: Client, trigger?: Reac
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="company" className="text-right">Company</Label>
                         <Input id="company" value={form.company || ''} onChange={handleChange} className="col-span-3" />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="phone" className="text-right">Phone</Label>
+                        <Input id="phone" value={form.phone || ''} onChange={handleChange} className="col-span-3" />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="address" className="text-right">Address</Label>
+                        <Input id="address" value={form.address || ''} onChange={handleChange} className="col-span-3" />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="status" className="text-right">Status</Label>

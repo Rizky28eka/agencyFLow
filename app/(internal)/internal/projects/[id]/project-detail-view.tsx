@@ -28,7 +28,15 @@ type SanitizedExpense = Omit<Expense, 'amount'> & { amount: string };
 type FileWithUploadedBy = File & { uploadedBy: { name: string | null } };
 
 // Define a more specific type for the project data after serialization
-type ProjectDetailProps = Omit<Project, 'budget'> & { client: Client, tasks: (Task & { assignee: User | null })[], expenses: SanitizedExpense[], files: FileWithUploadedBy[], budget: number, totalExpenses: number, profitability: number }; // Changed budget to number, added totalExpenses and profitability
+type ProjectDetailProps = Omit<Project, 'budget' | 'expenses'> & {
+    client: Client;
+    tasks: (Task & { assignee: User | null })[];
+    expenses: SanitizedExpense[];
+    files: FileWithUploadedBy[];
+    budget: string | null; // Changed to string | null
+    totalExpenses: number;
+    profitability: number;
+};
 type UserListProps = User[];
 import { TimeEntryWithRelations } from '../../time-entries/actions';
 
@@ -122,7 +130,7 @@ export function ProjectDetailView({ project, users, timeEntries, activities }: {
         description: description,
         status: project.status,
         clientId: project.clientId,
-        budget: project.budget.toString(),
+        budget: project.budget || "0",
         startDate: project.startDate ? new Date(project.startDate) : null,
         endDate: project.endDate ? new Date(project.endDate) : null,
       };
@@ -152,7 +160,7 @@ export function ProjectDetailView({ project, users, timeEntries, activities }: {
 
   const currencyFormatter = new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'USD',
+    currency: project.budgetCurrency || 'USD',
   });
 
   const totalHoursLogged = timeEntries.reduce((sum, entry) => sum + Number(entry.hours), 0);
@@ -381,14 +389,6 @@ export function ProjectDetailView({ project, users, timeEntries, activities }: {
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Budget</span>
                 <span>{currencyFormatter.format(Number(project.budget))}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Total Expenses</span>
-                <span className="text-red-500">{currencyFormatter.format(Number(project.totalExpenses))}</span>
-              </div>
-              <div className="flex justify-between font-semibold">
-                <span>Profitability</span>
-                <span>{currencyFormatter.format(Number(project.profitability))}</span>
               </div>
             </CardContent>
           </Card>

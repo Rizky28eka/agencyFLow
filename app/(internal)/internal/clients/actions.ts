@@ -31,7 +31,7 @@ export async function getClients() {
     });
 }
 
-export async function addClient(data: { name: string, email: string, company: string, status: 'ACTIVE' | 'INACTIVE' }) {
+export async function addClient(data: { name: string, email: string, company: string, status: 'ACTIVE' | 'INACTIVE', phone: string | null, address: string | null }) {
     const user = await getAuthenticatedUser();
     if (!canManageClients(user)) {
         throw new Error("Unauthorized");
@@ -46,7 +46,7 @@ export async function addClient(data: { name: string, email: string, company: st
     revalidatePath("/internal/clients")
 }
 
-export async function updateClient(id: string, data: { name: string, email: string, company: string, status: 'ACTIVE' | 'INACTIVE' }) {
+export async function updateClient(id: string, data: { name: string, email: string, company: string, status: 'ACTIVE' | 'INACTIVE', phone: string | null, address: string | null }) {
     const user = await getAuthenticatedUser();
     if (!canManageClients(user)) {
         throw new Error("Unauthorized");

@@ -75,7 +75,7 @@ import { toast } from "sonner"
 
 const statuses = Object.values(ProjectStatus).map(status => ({ value: status, label: status.replace("_", " ") }))
 
-type ProjectWithClient = Omit<Project, 'budget'> & { budget: string; client: { id: string; name: string; }; totalExpenses: string; profitability: string; }
+type ProjectWithClient = Omit<Project, 'budget'> & { budget: string | null; client: { id: string; name: string; }; }
 
 const currencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -150,16 +150,6 @@ export default function ProjectsPage() {
       accessorKey: "budget",
       header: "Budget",
       cell: ({ row }) => <div>{currencyFormatter.format(Number(row.original.budget))}</div>,
-    },
-    {
-      accessorKey: "totalExpenses",
-      header: "Total Expenses",
-      cell: ({ row }) => <div>{currencyFormatter.format(Number(row.original.totalExpenses))}</div>,
-    },
-    {
-      accessorKey: "profitability",
-      header: "Profitability",
-      cell: ({ row }) => <div>{currencyFormatter.format(Number(row.original.profitability))}</div>,
     },
     {
       accessorKey: "status",

@@ -48,6 +48,7 @@ export async function getInvoices() {
         organizationId: invoice.organizationId,
         clientId: invoice.clientId,
         projectId: invoice.projectId,
+        externalPaymentIntentId: invoice.externalPaymentIntentId,
         client: invoice.client,
         project: {
             id: invoice.project.id,

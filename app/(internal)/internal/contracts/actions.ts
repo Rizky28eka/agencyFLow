@@ -11,12 +11,15 @@ import { v4 as uuidv4 } from 'uuid';
 import { canManageContracts } from "@/lib/permissions";
 
 // Define types for Contract
-export type ContractWithRelations = Prisma.ContractGetPayload<{
+export type ClientContract = Omit<Prisma.ContractGetPayload<{
     include: {
         client: true,
         project: true,
     }
-}>;
+}>, 'amount' | 'project'> & {
+    amount: string;
+    project: (Omit<Prisma.ProjectGetPayload<object>, 'budget'> & { budget: string | null }) | null;
+};
 
 async function getAuthenticatedUser() {
     const session = await getServerSession(authOptions);
@@ -34,7 +37,7 @@ async function getAuthenticatedUser() {
 }
 
 // --- Get all contracts ---
-export async function getContracts(): Promise<ContractWithRelations[]> {
+export async function getContracts(): Promise<ClientContract[]> {
     const user = await getAuthenticatedUser();
     if (!canManageContracts(user)) {
         throw new Error("Unauthorized: You do not have permission to view contracts.");
@@ -53,7 +56,18 @@ export async function getContracts(): Promise<ContractWithRelations[]> {
                 endDate: 'desc',
             },
         });
-        return contracts;
+
+        // Convert Decimal types to string for client-side consumption
+        const contractsForClient = contracts.map(contract => ({
+            ...contract,
+            amount: contract.amount.toString(),
+            project: contract.project ? {
+                ...contract.project,
+                budget: contract.project.budget ? contract.project.budget.toString() : null,
+            } : null,
+        }));
+
+        return contractsForClient as ClientContract[];
     } catch (error) {
         console.error("Failed to fetch contracts:", error);
         throw new Error("Failed to fetch contracts.");
@@ -63,7 +77,7 @@ export async function getContracts(): Promise<ContractWithRelations[]> {
 const UPLOAD_DIR = path.join(process.cwd(), 'public', 'uploads');
 
 // --- Create a new contract ---
-export async function createContract(prevState: { success: boolean; message: string; }, formData: FormData) {
+export async function createContract(prevState: { success: boolean; message: string; data?: ClientContract | null }, formData: FormData) {
     const user = await getAuthenticatedUser();
     if (!canManageContracts(user)) {
         return { success: false, message: "Unauthorized" };
@@ -115,8 +129,18 @@ export async function createContract(prevState: { success: boolean; message: str
             }
         });
 
+        // Convert Decimal types to string for client-side consumption
+        const newContractForClient = {
+            ...newContract,
+            amount: newContract.amount.toString(),
+            project: newContract.project ? {
+                ...newContract.project,
+                budget: newContract.project.budget ? newContract.project.budget.toString() : null,
+            } : null,
+        };
+
         revalidatePath("/internal/contracts");
-        return { success: true, message: "Contract created successfully!", data: newContract };
+        return { success: true, message: "Contract created successfully!", data: newContractForClient as ClientContract };
 
     } catch (error) {
         console.error("Error creating contract:", error);

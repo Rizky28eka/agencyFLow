@@ -56,13 +56,41 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { getInvoices, getClients, getProjects, addInvoice, updateInvoice, deleteInvoice } from "./actions"
-import { Invoice, Client, Project, InvoiceStatus } from "@prisma/client"
+import { Client, InvoiceStatus, ProjectStatus } from "@prisma/client"
 
 const statuses = Object.values(InvoiceStatus).map(status => ({ value: status, label: status.replace("_", " ") }))
 
-type ProjectWithBudgetAsString = Omit<Project, 'budget'> & { budget: string | null }; // Re-define or import if already defined globally
+type ProjectWithBudgetAsString = {
+  id: string;
+  name: string;
+  description: string | null;
+  status: ProjectStatus;
+  budget: string | null;
+  startDate: Date | null;
+  endDate: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  organizationId: string;
+  clientId: string;
+};
 
-type InvoiceWithRelations = Omit<Invoice, 'totalAmount'> & { totalAmount: string, client: Client, project: ProjectWithBudgetAsString }
+type InvoiceWithRelations = {
+  id: string;
+  createdAt: Date;
+  updatedAt: Date;
+  organizationId: string;
+  status: InvoiceStatus;
+  clientId: string;
+  invoiceNumber: string;
+  totalAmount: string;
+  issueDate: Date;
+  dueDate: Date;
+  paidDate: Date | null;
+  externalPaymentIntentId: string | null;
+  projectId: string | null;
+  client: Client;
+  project: ProjectWithBudgetAsString;
+}
 
 export default function InvoicesPage() {
   const [data, setData] = React.useState<InvoiceWithRelations[]>([])
@@ -533,6 +561,7 @@ function InvoiceFormDialog({ invoice, clients, projects, trigger }: { invoice?: 
             const data = {
                 ...form,
                 totalAmount: form.totalAmount.toString(),
+                projectId: form.projectId || "", // Ensure projectId is a string
             };
             if (invoice) {
                 updateInvoice(invoice.id, data)
@@ -573,7 +602,7 @@ function InvoiceFormDialog({ invoice, clients, projects, trigger }: { invoice?: 
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="projectId" className="text-right">Project</Label>
-                        <Select onValueChange={(value) => handleSelectChange("projectId", value)} defaultValue={form.projectId}>
+                        <Select onValueChange={(value) => handleSelectChange("projectId", value)} defaultValue={form.projectId ?? undefined}>
                             <SelectTrigger className="col-span-3">
                                 <SelectValue placeholder="Select a project" />
                             </SelectTrigger>

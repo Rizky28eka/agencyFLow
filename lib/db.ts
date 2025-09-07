@@ -1,16 +1,18 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from "@prisma/client";
 
 declare global {
-  // allow global `var` declarations
+  // Biarkan global prisma untuk development
+  // supaya tidak bikin koneksi baru setiap HMR (Hot Module Replacement)
+  
   var prisma: PrismaClient | undefined;
 }
 
 export const prisma =
-  global.prisma ||
+  global.prisma ??
   new PrismaClient({
-    log: ['query'],
+    log: ["query", "info", "warn", "error"], // lebih detail log
   });
 
-if (process.env.NODE_ENV !== 'production') {
+if (process.env.NODE_ENV !== "production") {
   global.prisma = prisma;
 }

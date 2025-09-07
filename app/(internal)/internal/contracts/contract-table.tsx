@@ -34,7 +34,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { ContractWithRelations, deleteContract } from "./actions" // Import the main type and delete action
+import { ClientContract, deleteContract } from "./actions" // Import the main type and delete action
 import { Badge } from "@/components/ui/badge"
 import { format } from "date-fns"
 import { ContractFormDialog } from "./contract-form-dialog"
@@ -42,11 +42,11 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { toast } from "sonner"
 
 interface ContractTableProps {
-  initialContracts: ContractWithRelations[];
+  initialContracts: ClientContract[];
 }
 
 export function ContractTable({ initialContracts }: ContractTableProps) {
-  const [contracts, setContracts] = React.useState<ContractWithRelations[]>(initialContracts)
+  const [contracts, setContracts] = React.useState<ClientContract[]>(initialContracts)
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({})
@@ -62,7 +62,7 @@ export function ContractTable({ initialContracts }: ContractTableProps) {
     }
   };
 
-  const columns: ColumnDef<ContractWithRelations>[] = [
+  const columns: ColumnDef<ClientContract>[] = [
     {
       id: "select",
       header: ({ table }) => (

@@ -7,7 +7,14 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { isManager } from "@/lib/permissions";
 
-export type Project = Prisma.ProjectGetPayload<object>;
+export type Project = Prisma.ProjectGetPayload<{
+    include: {
+        expenses: true;
+    };
+}> & {
+    totalExpenses: number;
+    profitability: number;
+};
 export type Task = Prisma.TaskGetPayload<object>;
 export type TimeEntry = Prisma.TimeEntryGetPayload<object>;
 export type User = Prisma.UserGetPayload<object>;
@@ -20,7 +27,7 @@ async function getAuthenticatedUser() {
     if (!session || !session.user?.id || !session.user.organizationId || !session.user.role) {
         throw new Error("Unauthorized: User not authenticated.");
     }
-    const user = await prisma.user.findUnique({ 
+    const user = await prisma.user.findUnique({
         where: { id: session.user.id },
         include: { role: true }
     });
@@ -42,32 +49,29 @@ export async function getProjects() {
         },
         include: {
             client: true,
+            expenses: true, // Include expenses
         },
     });
 
-    const expenseSums = await prisma.expense.groupBy({
-        by: ['projectId'],
-        _sum: {
-            amount: true,
-        },
-    });
-
-    return projects.map(project => {
-        const expenseSum = expenseSums.find(e => e.projectId === project.id);
-        const totalExpenses = expenseSum?._sum.amount?.toString() ?? "0";
-        const budget = project.budget?.toString() ?? "0";
-
-        const totalExpensesNum = parseFloat(totalExpenses);
-        const budgetNum = parseFloat(budget);
-        const profitability = budgetNum - totalExpensesNum;
-
+    // Calculate total expenses for each project
+    const projectsWithTotalExpenses = projects.map(project => {
+        const expenses = project.expenses.map(expense => ({
+            ...expense,
+            amount: expense.amount.toString(), // Convert Decimal to string
+        }));
+        const totalExpenses = expenses.reduce((sum, expense) => sum + Number(expense.amount), 0);
+        // Add a new property 'totalExpenses' to the project object
         return {
             ...project,
-            budget: budget,
+            expenses: expenses, // Use the converted expenses array
             totalExpenses: totalExpenses,
-            profitability: profitability.toString(),
+            // Also calculate profitability here if needed, or in page.tsx
+            profitability: Number(project.budget) - totalExpenses,
+            budget: project.budget ? project.budget.toString() : null, // Convert budget to string
         };
     });
+
+    return projectsWithTotalExpenses;
 }
 
 export async function getProjectById(id: string) {
@@ -93,22 +97,20 @@ export async function getProjectById(id: string) {
         return null;
     }
 
-    // Convert Decimals in expenses to strings
-    const sanitizedExpenses = project.expenses.map(expense => ({
-        ...expense,
-        amount: expense.amount.toString(),
-    }));
+    const totalExpenses = project.expenses.reduce((sum, expense) => sum + Number(expense.amount), 0);
+    const profitability = Number(project.budget) - totalExpenses;
 
-    const totalExpenses = sanitizedExpenses.reduce((sum, expense) => sum + Number(expense.amount), 0);
-    const budget = Number(project.budget) || 0;
-    const profitability = budget - totalExpenses;
+    const expenses = project.expenses.map(expense => ({
+        ...expense,
+        amount: expense.amount.toString(), // Convert Decimal to string
+    }));
 
     return {
         ...project,
-        budget: project.budget?.toString() ?? "0",
-        expenses: sanitizedExpenses, // Use the sanitized expenses
-        totalExpenses: totalExpenses.toString(),
-        profitability: profitability.toString(),
+        expenses: expenses, // Use the converted expenses array
+        totalExpenses,
+        profitability,
+        budget: project.budget ? project.budget.toString() : null, // Convert budget to string
     };
 }
 
@@ -151,7 +153,7 @@ export async function updateProject(id: string, data: { name: string, descriptio
         ...data,
         budget: parseFloat(data.budget)
     }
-    
+
     await prisma.project.update({
         where: { id, organizationId: user.organizationId },
         data: dataWithNumberBudget,

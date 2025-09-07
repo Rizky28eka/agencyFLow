@@ -7,7 +7,7 @@ import { getProjectFiles } from "@/app/(internal)/internal/files/actions";
 import { getProjectActivities } from "@/app/(internal)/internal/activities/actions";
 
 export default async function ProjectDetailPage({ params }: { params: { id: string } }) {
-  const { id } = params;
+  const { id } = await params;
 
   const project = await getProjectById(id);
   const users = await getUsersByOrganization();
@@ -19,12 +19,14 @@ export default async function ProjectDetailPage({ params }: { params: { id: stri
     notFound();
   }
 
-  // Convert string properties back to numbers for ProjectDetailView
+  // Convert Decimal properties to string for ProjectDetailView
   const processedProject = {
     ...project,
-    budget: Number(project.budget),
-    totalExpenses: Number(project.totalExpenses),
-    profitability: Number(project.profitability),
+    budget: project.budget ? project.budget.toString() : null,
+    expenses: project.expenses.map((expense) => ({
+      ...expense,
+      amount: expense.amount.toString(),
+    })),
   };
 
     return <ProjectDetailView project={{ ...processedProject, files }} users={users} timeEntries={timeEntries} activities={activities} />;

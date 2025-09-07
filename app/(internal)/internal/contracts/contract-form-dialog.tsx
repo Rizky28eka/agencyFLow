@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useActionState } from "react";
-import { createContract, ContractWithRelations } from "./actions";
+import { createContract, ClientContract } from "./actions";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { getClientsForSelection } from "../clients/actions";
@@ -19,12 +19,12 @@ interface SelectItem {
     name: string;
 }
 
+const initialState: { success: boolean; message: string; data?: ClientContract | null } = { success: false, message: "", data: null };
+
 interface ContractFormDialogProps {
     trigger: React.ReactNode;
-    onContractCreated?: (newContract: ContractWithRelations) => void;
+    onContractCreated?: (newContract: ClientContract) => void;
 }
-
-const initialState: { success: boolean; message: string; data?: ContractWithRelations | null } = { success: false, message: "", data: null };
 
 export function ContractFormDialog({ trigger, onContractCreated }: ContractFormDialogProps) {
     const [state, formAction] = useActionState(createContract, initialState);
@@ -37,7 +37,7 @@ export function ContractFormDialog({ trigger, onContractCreated }: ContractFormD
         if (state.success) {
             toast.success(state.message);
             if (state.data && onContractCreated) {
-                onContractCreated(state.data as ContractWithRelations);
+                onContractCreated(state.data as ClientContract);
             }
             setIsOpen(false);
             formRef.current?.reset();

@@ -17,7 +17,10 @@ export async function getTeamWorkload(date?: Date) {
           },
         },
       },
-      include: {
+      select: { // Select specific fields for User
+        id: true,
+        name: true,
+        dailyCapacityHours: true, // Include dailyCapacityHours
         assignedTasks: {
           where: {
             OR: [
@@ -44,7 +47,12 @@ export async function getTeamWorkload(date?: Date) {
               },
             ],
           },
-          include: {
+          select: { // Select specific fields for Task
+            id: true,
+            title: true,
+            estimatedHours: true, // Include estimatedHours
+            startDate: true,
+            dueDate: true,
             project: {
               select: {
                 name: true,

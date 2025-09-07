@@ -2,7 +2,14 @@ import { getContracts } from "./actions";
 import { ContractTable } from "./contract-table";
 
 export default async function ContractsPage() {
-  const contracts = await getContracts();
+  const contracts = (await getContracts()).map((contract) => ({
+    ...contract,
+    amount: contract.amount.toString(),
+    project: contract.project ? {
+      ...contract.project,
+      budget: contract.project.budget ? contract.project.budget.toString() : null,
+    } : null,
+  }));
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
