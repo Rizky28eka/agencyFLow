@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils"
 import { format } from "date-fns"
 import { toast } from "sonner"
 import { addTask, updateTask, deleteTask, addTaskDependency, removeTaskDependency, getProjectTasksForDependencies } from "./actions"
-import { Task, User, TaskWithRelations } from "./actions" // Import TaskWithRelations
+import { User, TaskWithRelations } from "./actions" // Import TaskWithRelations
 
 enum TaskStatus {
   TO_DO = "TO_DO",
@@ -142,8 +142,8 @@ export function TaskFormDialog({ projectId, task, trigger, onSuccess, users }: T
         setOpen(false);
         toast.success(task ? "Task updated" : "Task added");
         onSuccess?.();
-      } catch (error: any) {
-        toast.error(error.message);
+      } catch (error: unknown) { // Changed from any to unknown
+        toast.error(error instanceof Error ? error.message : "An unknown error occurred.");
       }
     });
   }
@@ -282,58 +282,11 @@ export function TaskFormDialog({ projectId, task, trigger, onSuccess, users }: T
     </Dialog>
   );
 
-  // Move handleSubmit logic here to be within the component scope
-  async function handleSubmit() {
-    startTransition(async () => {
-      const dataToSubmit = {
-        ...form,
-        assigneeId: form.assigneeId === UNASSIGNED_VALUE ? null : form.assigneeId,
-        dueDate: form.dueDate || null,
-      };
-
-      try {
-        let currentTaskId: string;
-
-        if (task) {
-          // Update existing task
-          await updateTask(task.id, projectId, dataToSubmit);
-          currentTaskId = task.id;
-        } else {
-          // Add new task
-          const newTask = await addTask({ ...dataToSubmit, projectId });
-          currentTaskId = newTask.id; // Assuming addTask returns the new task with an ID
-        }
-
-        // Handle dependencies
-        const existingDependencyIds = task?.dependenciesOn?.map(dep => dep.dependsOnId) || [];
-
-        const dependenciesToAdd = selectedDependencies.filter(
-          (depId) => !existingDependencyIds.includes(depId)
-        );
-        const dependenciesToRemove = existingDependencyIds.filter(
-          (depId) => !selectedDependencies.includes(depId)
-        );
-
-        for (const depId of dependenciesToAdd) {
-          await addTaskDependency(currentTaskId, depId);
-        }
-
-        for (const depId of dependenciesToRemove) {
-          await removeTaskDependency(currentTaskId, depId);
-        }
-
-        setOpen(false);
-        toast.success(task ? "Task updated" : "Task added");
-        onSuccess?.();
-      } catch (error: any) {
-        toast.error(error.message);
-      }
-    });
-  }
+  
 }
 
 type TaskActionsProps = {
-    task: Task;
+    task: TaskWithRelations;
     projectId: string;
     onSuccess?: () => void;
     users: User[]; // Add users prop
@@ -349,8 +302,8 @@ export function TaskActions({ task, projectId, onSuccess, users }: TaskActionsPr
                     toast.success("Task deleted");
                     onSuccess?.();
                 })
-                .catch((error) => {
-                    toast.error(error.message);
+                .catch((error: unknown) => { // Changed from any to unknown
+                    toast.error(error instanceof Error ? error.message : "An unknown error occurred.");
                 });
         });
     };

@@ -19,6 +19,7 @@ export const metadata: Metadata = {
 
 import { ThemeProvider } from "@/components/theme-provider";
 import SessionProvider from "@/components/session-provider";
+import { I18nProvider } from "@/components/i18n-provider"; // Import I18nProvider
 
 export default function RootLayout({
   children,
@@ -26,10 +27,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+    <html lang="id" suppressHydrationWarning={true}><body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <SessionProvider>
           <ThemeProvider
             attribute="class"
@@ -37,7 +35,9 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
-            {children}
+            <I18nProvider> {/* Wrap children with I18nProvider */}
+              {children}
+            </I18nProvider>
           </ThemeProvider>
         </SessionProvider>
       </body>

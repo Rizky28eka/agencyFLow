@@ -7,14 +7,18 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { isManager } from "@/lib/permissions";
 
-export type Project = Prisma.ProjectGetPayload<{
+export type ProjectWithCalculatedFields = Omit<Prisma.ProjectGetPayload<{
     include: {
         expenses: true;
+        client: true;
     };
-}> & {
+}>, 'budget' | 'expenses'> & {
     totalExpenses: number;
     profitability: number;
+    budget: number | null;
+    expenses: (Omit<Prisma.ExpenseGetPayload<object>, 'amount'> & { amount: number })[];
 };
+
 export type Task = Prisma.TaskGetPayload<object>;
 export type TimeEntry = Prisma.TimeEntryGetPayload<object>;
 export type User = Prisma.UserGetPayload<object>;
@@ -37,7 +41,7 @@ async function getAuthenticatedUser() {
     return user;
 }
 
-export async function getProjects() {
+export async function getProjects(): Promise<ProjectWithCalculatedFields[]> {
     const user = await getAuthenticatedUser();
     if (!isManager(user)) {
         throw new Error("Unauthorized: You do not have permission to view projects.");
@@ -57,17 +61,17 @@ export async function getProjects() {
     const projectsWithTotalExpenses = projects.map(project => {
         const expenses = project.expenses.map(expense => ({
             ...expense,
-            amount: expense.amount.toString(), // Convert Decimal to string
+            amount: parseFloat(expense.amount.toString()), // Convert Decimal to number
         }));
-        const totalExpenses = expenses.reduce((sum, expense) => sum + Number(expense.amount), 0);
+        const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
         // Add a new property 'totalExpenses' to the project object
         return {
             ...project,
-            expenses: expenses, // Use the converted expenses array
+            expenses: expenses,
             totalExpenses: totalExpenses,
             // Also calculate profitability here if needed, or in page.tsx
-            profitability: Number(project.budget) - totalExpenses,
-            budget: project.budget ? project.budget.toString() : null, // Convert budget to string
+            profitability: (project.budget ? parseFloat(project.budget.toString()) : 0) - totalExpenses,
+            budget: project.budget ? parseFloat(project.budget.toString()) : null,
         };
     });
 
@@ -86,7 +90,36 @@ export async function getProjectById(id: string) {
             client: true,
             tasks: {
                 include: {
-                    assignee: true,
+                    project: {
+                        select: {
+                            name: true,
+                        },
+                    },
+                    assignee: {
+                        select: {
+                            name: true,
+                        },
+                    },
+                    dependenciesOn: {
+                        include: {
+                            dependsOn: {
+                                select: {
+                                    id: true,
+                                    title: true,
+                                },
+                            },
+                        },
+                    },
+                    dependentTasks: {
+                        include: {
+                            dependent: {
+                                select: {
+                                    id: true,
+                                    title: true,
+                                },
+                            },
+                        },
+                    },
                 },
             },
             expenses: true,
@@ -97,20 +130,20 @@ export async function getProjectById(id: string) {
         return null;
     }
 
-    const totalExpenses = project.expenses.reduce((sum, expense) => sum + Number(expense.amount), 0);
-    const profitability = Number(project.budget) - totalExpenses;
+    const totalExpenses = project.expenses.reduce((sum, expense) => sum + parseFloat(expense.amount.toString()), 0);
+    const profitability = (project.budget ? parseFloat(project.budget.toString()) : 0) - totalExpenses;
 
     const expenses = project.expenses.map(expense => ({
         ...expense,
-        amount: expense.amount.toString(), // Convert Decimal to string
+        amount: parseFloat(expense.amount.toString()), // Convert Decimal to number
     }));
 
     return {
         ...project,
-        expenses: expenses, // Use the converted expenses array
+        expenses: expenses,
         totalExpenses,
         profitability,
-        budget: project.budget ? project.budget.toString() : null, // Convert budget to string
+        budget: project.budget ? parseFloat(project.budget.toString()) : null, // Convert budget to number
     };
 }
 
@@ -199,4 +232,69 @@ export async function getProjectsForSelection(): Promise<{ id: string; name: str
         console.error("Failed to fetch projects for selection:", error);
         return [];
     }
+}
+
+export async function createProjectFromQuotation(quotationId: string) {
+    const user = await getAuthenticatedUser();
+    if (!isManager(user)) {
+        throw new Error("Unauthorized: You do not have permission to create projects from quotations.");
+    }
+
+    const quotation = await prisma.quotation.findUnique({
+        where: { id: quotationId, organizationId: user.organizationId },
+        include: {
+            items: true,
+            client: true,
+        },
+    });
+
+    if (!quotation) {
+        throw new Error("Quotation not found.");
+    }
+
+    if (quotation.status !== "APPROVED") {
+        throw new Error("Only approved quotations can be converted to projects.");
+    }
+
+    // Create a new project
+    const newProject = await prisma.project.create({
+        data: {
+            name: `Project from Quotation ${quotation.quotationNumber}`,
+            description: `Project created from approved quotation ${quotation.quotationNumber}. Total amount: ${quotation.totalAmount} ${quotation.currency}.`,
+            status: "PLANNING", // Default status for new projects
+            clientId: quotation.clientId,
+            budget: quotation.totalAmount,
+            budgetCurrency: quotation.currency,
+            startDate: new Date(), // Project starts now
+            organizationId: user.organizationId,
+        },
+    });
+
+    // Update the quotation to link it to the new project
+    await prisma.quotation.update({
+        where: { id: quotationId },
+        data: {
+            projectId: newProject.id,
+        },
+    });
+
+    // Optionally, create tasks from quotation items
+    // For now, we'll just create the project. Task creation can be a separate step or more complex logic.
+    // if (quotation.items && quotation.items.length > 0) {
+    //     for (const item of quotation.items) {
+    //         await prisma.task.create({
+    //             data: {
+    //                 title: item.description,
+    //                 projectId: newProject.id,
+    //                 organizationId: user.organizationId, // Assuming tasks also need organizationId
+    //                 status: "TO_DO",
+    //                 priority: "MEDIUM",
+    //                 estimatedHours: item.quantity * 8, // Example: 8 hours per item quantity
+    //             },
+    //         });
+    //     }
+    // }
+
+    revalidatePath("/internal/projects");
+    return newProject;
 }

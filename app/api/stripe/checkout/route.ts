@@ -35,7 +35,7 @@ export async function POST(request: Request) {
       line_items: [
         {
           price_data: {
-            currency: 'usd', // You might want to make this dynamic
+            currency: 'idr', // You might want to make this dynamic
             product_data: {
               name: `Invoice #${invoice.invoiceNumber}`,
               description: `Payment for services rendered`,

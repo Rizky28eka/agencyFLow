@@ -7,20 +7,20 @@ import { ScrollArea } from "./ui/scroll-area";
 interface Task {
   id: string;
   title: string;
-  startDate: Date;
-  dueDate: Date;
+  startDate: Date | null;
+  dueDate: Date | null;
   dependencies?: string[];
-  assignee?: {
-    id: string;
+  assignee: {
+    id?: string;
     name: string | null;
-  };
+  } | null;
 }
 
 interface Project {
   id: string;
   name: string;
-  startDate: Date;
-  endDate: Date;
+  startDate: Date | null;
+  endDate: Date | null;
   tasks: Task[];
 }
 
@@ -44,11 +44,11 @@ export function GanttChart({ projects }: GanttChartProps) {
   let maxDate = projects[0]?.endDate || new Date();
 
   projects.forEach((project) => {
-    if (project.startDate < minDate) minDate = project.startDate;
-    if (project.endDate > maxDate) maxDate = project.endDate;
+    if (project.startDate && project.startDate < minDate) minDate = project.startDate;
+    if (project.endDate && project.endDate > maxDate) maxDate = project.endDate;
     project.tasks.forEach((task) => {
-      if (task.startDate < minDate) minDate = task.startDate;
-      if (task.dueDate > maxDate) maxDate = task.dueDate;
+      if (task.startDate && task.startDate < minDate) minDate = task.startDate;
+      if (task.dueDate && task.dueDate > maxDate) maxDate = task.dueDate;
     });
   });
 
@@ -107,10 +107,10 @@ export function GanttChart({ projects }: GanttChartProps) {
       const draggedTask = projectWithDraggedTask?.tasks.find(t => t.id === draggedTaskId);
 
       if (draggedTask && projectWithDraggedTask) {
-        const newStartDate = new Date(draggedTask.startDate);
+        const newStartDate = draggedTask.startDate ? new Date(draggedTask.startDate) : new Date();
         newStartDate.setDate(newStartDate.getDate() + daysMoved);
 
-        const newDueDate = new Date(draggedTask.dueDate);
+        const newDueDate = draggedTask.dueDate ? new Date(draggedTask.dueDate) : new Date();
         newDueDate.setDate(newDueDate.getDate() + daysMoved);
 
         await updateTask(draggedTask.id, projectWithDraggedTask.id, {
@@ -178,11 +178,11 @@ export function GanttChart({ projects }: GanttChartProps) {
                   >
                     {project.tasks.map((task, taskIndex) => {
                       const taskStartOffset = differenceInDays(
-                        task.startDate,
+                        task.startDate || minDate,
                         minDate
                       );
                       const taskDuration =
-                        differenceInDays(task.dueDate, task.startDate) + 1;
+                        differenceInDays(task.dueDate || maxDate, task.startDate || minDate) + 1;
                       const taskLeft = taskStartOffset * DAY_WIDTH;
                       const taskWidth = taskDuration * DAY_WIDTH;
                       const taskTop = taskIndex * TASK_HEIGHT;

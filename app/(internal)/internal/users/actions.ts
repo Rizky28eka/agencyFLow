@@ -40,8 +40,13 @@ export async function getUsersByOrganization(): Promise<UserWithRole[]> {
             where: {
                 organizationId: user.organizationId,
             },
-            include: {
-                role: true, // Include role details
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                image: true,
+                dailyCapacityHours: true, // Explicitly include dailyCapacityHours
+                role: true, // Include role details within select
             },
             orderBy: {
                 createdAt: "asc",

@@ -3,11 +3,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { CommentEntityType } from '@prisma/client'; // Assuming this import path is correct after build
 import { useSession } from 'next-auth/react'; // Assuming next-auth/react is used for session
+import Image from 'next/image'; // Import next/image
+import { addComment, getComments } from '@/app/actions/comments'; // Import server actions
 
 interface Comment {
   id: string;
   content: string;
-  createdAt: string;
+  createdAt: Date;
   author: {
     id: string;
     name: string | null;
@@ -31,14 +33,11 @@ const CommentSection: React.FC<CommentSectionProps> = ({ entityId, entityType })
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/comments?entityId=${entityId}&entityType=${entityType}`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const data: Comment[] = await response.json();
-      setComments(data);
-    } catch (err: any) {
-      setError(err.message || 'Failed to fetch comments');
+      // Replace API call with server action
+      const data = await getComments(entityType, entityId);
+      setComments(data as Comment[]); // Cast to Comment[]
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch comments');
       console.error('Error fetching comments:', err);
     } finally {
       setIsLoading(false);
@@ -56,35 +55,21 @@ const CommentSection: React.FC<CommentSectionProps> = ({ entityId, entityType })
     }
 
     try {
-      const response = await fetch('/api/comments', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          content: newCommentContent,
-          entityId,
-          entityType,
-        }),
-      });
+      // Replace API call with server action
+      const addedComment = await addComment(entityType, entityId, newCommentContent);
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const addedComment: Comment = await response.json();
       // Optimistically update UI or refetch comments
       setComments((prevComments) => [...prevComments, {
         ...addedComment,
         author: {
           id: session.user.id as string,
-          name: session.user.name,
-          image: session.user.image,
+          name: session.user.name ?? null,
+          image: session.user.image ?? null,
         }
       }]);
       setNewCommentContent('');
-    } catch (err: any) {
-      setError(err.message || 'Failed to add comment');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to add comment');
       console.error('Error adding comment:', err);
     }
   };
@@ -100,7 +85,13 @@ const CommentSection: React.FC<CommentSectionProps> = ({ entityId, entityType })
           <div key={comment.id} className="bg-gray-50 p-3 rounded-md shadow-sm">
             <div className="flex items-center space-x-2 text-sm text-gray-600">
               {comment.author.image && (
-                <img src={comment.author.image} alt={comment.author.name || 'User'} className="w-6 h-6 rounded-full" />
+                <Image
+                  src={comment.author.image}
+                  alt={comment.author.name || 'User'}
+                  width={24}
+                  height={24}
+                  className="rounded-full"
+                />
               )}
               <span className="font-medium">{comment.author.name || 'Unknown User'}</span>
               <span className="text-xs text-gray-400">{new Date(comment.createdAt).toLocaleString()}</span>

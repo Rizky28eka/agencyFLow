@@ -114,6 +114,26 @@ export async function getTasks() {
           name: true,
         },
       },
+      dependenciesOn: {
+        include: {
+          dependsOn: {
+            select: {
+              id: true,
+              title: true,
+            },
+          },
+        },
+      },
+      dependentTasks: {
+        include: {
+          dependent: {
+            select: {
+              id: true,
+              title: true,
+            },
+          },
+        },
+      },
     },
     orderBy: {
       createdAt: "desc",
@@ -132,7 +152,7 @@ export async function addTask(data: {
   estimatedHours?: number | null; // Add estimatedHours
   projectId: string;
   assigneeId?: string | null;
-}) {
+}): Promise<Task> {
   const user = await getAuthenticatedUser();
   if (!isManager(user)) {
     throw new Error("Unauthorized: Only managers can add tasks.");
@@ -169,6 +189,8 @@ export async function addTask(data: {
   );
 
   revalidatePath(`/internal/projects/${data.projectId}`);
+
+  return task;
 }
 
 export async function updateTask(

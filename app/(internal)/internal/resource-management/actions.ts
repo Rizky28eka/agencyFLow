@@ -20,6 +20,7 @@ export async function getTeamWorkload(date?: Date) {
       select: { // Select specific fields for User
         id: true,
         name: true,
+        email: true,
         dailyCapacityHours: true, // Include dailyCapacityHours
         assignedTasks: {
           where: {

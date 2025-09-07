@@ -99,6 +99,20 @@ enum NotificationType {
   CONTRACT
 }
 
+enum CommentEntityType {
+  TASK
+  PROJECT
+  INVOICE
+  CLIENT
+  FILE
+}
+
+enum FileApprovalStatus {
+  PENDING
+  APPROVED
+  REVISION_NEEDED
+}
+
 // ============================================================
 // Core Tenancy & Settings
 // ============================================================
@@ -130,6 +144,7 @@ model Organization {
   activities     Activity[]
   contracts      Contract[]
   payments       Payment[]
+  comments       Comment[]
 
   @@index([name])
   @@map("organizations")
@@ -165,9 +180,13 @@ model User {
   assignedTasks Task[]
   notifications Notification[]
   timeEntries   TimeEntry[]
-  uploadedFiles File[]
+  uploadedFiles File[] @relation("UploadedFiles")
+  approvedFiles File[] @relation("ApprovedFiles")
   activities    Activity[]
-  taskComments  TaskComment[] // Added for TaskComment relation
+  comments      Comment[]
+
+  clientId String?
+  client   Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
 
   // Audit helper (opsional): siapa membuat/mengubah — gunakan di app-level
   @@index([organizationId])
@@ -197,6 +216,7 @@ model Client {
   quotations  Quotation[]
   invoices    Invoice[]
   contracts   Contract[]
+  users       User[]
 
   @@index([organizationId, status])
   @@index([name])
@@ -230,6 +250,7 @@ model Project {
   files        File[]
   activities   Activity[]
   contracts    Contract[]
+  quotations   Quotation[]
 
   // Urutan kanban (opsional)
   sortIndex   Int? @default(0)
@@ -295,7 +316,6 @@ model Task {
   dependenciesOn TaskDependency[] @relation("DependsOn")
   dependentTasks TaskDependency[] @relation("DependentTasks")
   timeEntries    TimeEntry[]
-  comments       TaskComment[]
 
   @@index([projectId, status, priority])
   @@index([assigneeId])
@@ -312,22 +332,6 @@ model TaskDependency {
 
   @@unique([dependentId, dependsOnId]) // cegah duplikasi edge
   @@map("task_dependencies")
-}
-
-model TaskComment {
-  id        String   @id @default(cuid())
-  content   String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  taskId String
-  task   Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
-
-  authorId String
-  author   User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
-
-  @@index([taskId])
-  @@map("task_comments")
 }
 
 // ============================================================
@@ -379,6 +383,9 @@ model Quotation {
 
   items    QuotationItem[]
   invoices Invoice[] // Added for Invoice relation
+
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
   @@unique([organizationId, quotationNumber])
   @@index([organizationId, status])
@@ -548,20 +555,27 @@ model TimeEntry {
 // ============================================================
 
 model File {
-  id        String   @id @default(cuid())
-  name      String
-  url       String
-  fileType  String?
-  size      Int?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  deletedAt DateTime?
+  id             String            @id @default(cuid())
+  name           String
+  url            String
+  fileType       String?
+  size           Int?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  deletedAt      DateTime?
+
+  // New fields for file approval
+  approvalStatus FileApprovalStatus @default(PENDING)
+  approvedById   String?
+  approvedBy     User?             @relation("ApprovedFiles", fields: [approvedById], references: [id], onDelete: SetNull)
+  approvedAt     DateTime?
+  clientFeedback String? // Feedback from client if revision is needed
 
   projectId String
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   uploadedById String
-  uploadedBy   User    @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
+  uploadedBy   User    @relation("UploadedFiles", fields: [uploadedById], references: [id], onDelete: Cascade)
 
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -608,4 +622,23 @@ model Notification {
   @@index([recipientId, read])
   @@index([organizationId, createdAt])
   @@map("notifications")
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  entityType CommentEntityType
+  entityId   String
+
+  authorId String
+  author   User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([entityId, entityType])
+  @@map("comments")
 }

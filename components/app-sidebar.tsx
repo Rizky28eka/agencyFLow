@@ -45,6 +45,11 @@ const navItemsAdmin = [
     icon: "contracts",
   },
   {
+    title: "Quotations",
+    url: "/internal/quotations",
+    icon: "invoices",
+  },
+  {
     title: "Expenses",
     url: "/internal/expenses",
     icon: "expenses",
@@ -84,7 +89,7 @@ const navItemsClient = [
   },
   {
     title: "Proposals",
-    url: "/client/proposals",
+    url: "/client/quotations",
     icon: "contracts",
   },
 ]

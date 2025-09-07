@@ -161,11 +161,10 @@ export default function InvoicesPage() {
       header: () => <div className="text-right">Amount</div>,
       cell: ({ row }) => {
           const amount = parseFloat(row.getValue("totalAmount"))
-          const formatted = new Intl.NumberFormat("en-US", {
-              style: "currency",
-              currency: "USD",
+          const formatted = new Intl.NumberFormat("id-ID", {
+            style: "currency",
+            currency: "IDR",
           }).format(amount)
-  
           return <div className="text-right font-medium">{formatted}</div>
       }
     },

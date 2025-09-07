@@ -2,6 +2,8 @@ import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { NotificationBell } from "../app/(internal)/internal/notifications/notification-bell" // Import NotificationBell
+import { LanguageSwitcher } from "./language-switcher" // Import LanguageSwitcher
+import { Suspense } from 'react'; // Import Suspense
 
 export function SiteHeader() {
   return (
@@ -14,6 +16,9 @@ export function SiteHeader() {
         />
         <h1 className="text-base font-medium">Documents</h1>
         <div className="ml-auto flex items-center gap-2">
+          <Suspense fallback={<div>Loading Language...</div>}> {/* Wrap with Suspense */}
+            <LanguageSwitcher />
+          </Suspense>
           <NotificationBell /> {/* Add NotificationBell here */}
           <Button variant="ghost" asChild size="sm" className="hidden sm:flex">
             <a

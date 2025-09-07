@@ -1,14 +1,16 @@
 'use client'
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { GanttChart } from "@/components/gantt-chart";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
 import { IconArrowLeft, IconUser, IconCash, IconReceipt2, IconChecklist, IconClock, IconFile, IconDownload, IconDots, IconTrash, IconActivity, IconEdit } from "@tabler/icons-react";
 import Link from "next/link";
 import { ExpenseFormDialog, ExpenseActions } from "../../expenses/expense-form-dialog";
 import { TaskFormDialog, TaskActions } from "../../tasks/task-form-dialog";
+import { TaskWithRelations } from '../../tasks/actions';
 import { TimeEntryFormDialog, TimeEntryActions } from "../../time-entries/time-entry-form-dialog";
-import { Project, Task, User, Expense, File, Client, updateProject } from '../../projects/actions';
+import { ProjectWithCalculatedFields, User, Expense, File, Client, updateProject } from '../../projects/actions'; // Changed Project to ProjectWithCalculatedFields
 import { uploadFile, deleteFile } from '../../files/actions';
 import { Activity } from '../../activities/actions';
 import { format } from "date-fns";
@@ -28,12 +30,12 @@ type SanitizedExpense = Omit<Expense, 'amount'> & { amount: string };
 type FileWithUploadedBy = File & { uploadedBy: { name: string | null } };
 
 // Define a more specific type for the project data after serialization
-type ProjectDetailProps = Omit<Project, 'budget' | 'expenses'> & {
+type ProjectDetailProps = Omit<ProjectWithCalculatedFields, 'budget' | 'expenses' | 'client'> & {
     client: Client;
-    tasks: (Task & { assignee: User | null })[];
+    tasks: TaskWithRelations[];
     expenses: SanitizedExpense[];
     files: FileWithUploadedBy[];
-    budget: string | null; // Changed to string | null
+    budget: number | null; // Changed to number | null
     totalExpenses: number;
     profitability: number;
 };
@@ -130,7 +132,7 @@ export function ProjectDetailView({ project, users, timeEntries, activities }: {
         description: description,
         status: project.status,
         clientId: project.clientId,
-        budget: project.budget || "0",
+        budget: project.budget?.toString() || "0", // Convert number back to string for updateProject
         startDate: project.startDate ? new Date(project.startDate) : null,
         endDate: project.endDate ? new Date(project.endDate) : null,
       };
@@ -158,10 +160,10 @@ export function ProjectDetailView({ project, users, timeEntries, activities }: {
     return <div>Project not found.</div>;
   }
 
-  const currencyFormatter = new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: project.budgetCurrency || 'USD',
-  });
+  const currencyFormatter = new Intl.NumberFormat('id-ID', {
+  style: 'currency',
+  currency: project.budgetCurrency || 'IDR',
+});
 
   const totalHoursLogged = timeEntries.reduce((sum, entry) => sum + Number(entry.hours), 0);
 
@@ -238,7 +240,7 @@ export function ProjectDetailView({ project, users, timeEntries, activities }: {
                     <TableRow><TableHead>Title</TableHead><TableHead>Status</TableHead><TableHead>Priority</TableHead><TableHead>Assignee</TableHead><TableHead>Due Date</TableHead><TableHead><span className="sr-only">Actions</span></TableHead></TableRow>
                   </TableHeader>
                   <TableBody>
-                    {project.tasks.map((task: Task & { assignee: User | null }) => (
+                    {project.tasks.map((task: TaskWithRelations) => (
                       <TableRow key={task.id}><TableCell>{task.title}</TableCell><TableCell><Badge variant="outline">{task.status.replace("_", " ")}</Badge></TableCell><TableCell>{task.priority}</TableCell><TableCell>{task.assignee?.name || 'Unassigned'}</TableCell><TableCell>{task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'N/A'}</TableCell><TableCell><TaskActions task={task} projectId={project.id} users={users} /></TableCell></TableRow>
                     ))}
                   </TableBody>
@@ -246,6 +248,18 @@ export function ProjectDetailView({ project, users, timeEntries, activities }: {
               ) : (
                 <p className="text-muted-foreground">No tasks for this project yet.</p>
               )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <IconChecklist size={20} />
+                Gantt Chart
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <GanttChart projects={[project]} />
             </CardContent>
           </Card>
 
@@ -315,7 +329,137 @@ export function ProjectDetailView({ project, users, timeEntries, activities }: {
             </CardContent>
           </Card>
 
-          {/* Files Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <IconUser size={20} />
+                Team Capacity Planning
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {(() => {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+
+                // Filter upcoming tasks with estimated hours
+                const upcomingTasks = project.tasks.filter(
+                  (task) => task.startDate && new Date(task.startDate) >= today && task.estimatedHours
+                );
+
+                // Calculate workload per user
+                const workloadPerUser = upcomingTasks.reduce((acc, task) => {
+                  if (task.assigneeId && task.estimatedHours) {
+                    acc[task.assigneeId] = (acc[task.assigneeId] || 0) + Number(task.estimatedHours);
+                  }
+                  return acc;
+                }, {} as Record<string, number>);
+
+                // Calculate capacity per user and compare with workload
+                const capacityData = users.map(user => {
+                  const totalWorkload = workloadPerUser[user.id] || 0;
+                  // Assuming a 30-day period for future capacity planning for simplicity
+                  const futureWorkingDays = 30; 
+                  const totalCapacity = (user.dailyCapacityHours ? Number(user.dailyCapacityHours) : 0) * futureWorkingDays;
+                  
+                  return {
+                    userName: user.name || 'N/A',
+                    totalWorkload: totalWorkload,
+                    totalCapacity: totalCapacity,
+                    remainingCapacity: totalCapacity - totalWorkload,
+                    isOverloaded: totalWorkload > totalCapacity && totalCapacity > 0,
+                  };
+                });
+
+                return (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Team Member</TableHead>
+                        <TableHead>Workload (Estimated Hours)</TableHead>
+                        <TableHead>Capacity (30 Days)</TableHead>
+                        <TableHead>Remaining Capacity</TableHead>
+                        <TableHead>Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {capacityData.length > 0 ? (
+                        capacityData.map((data, index) => (
+                          <TableRow key={index}>
+                            <TableCell>{data.userName}</TableCell>
+                            <TableCell>{data.totalWorkload.toFixed(2)}</TableCell>
+                            <TableCell>{data.totalCapacity.toFixed(2)}</TableCell>
+                            <TableCell className={data.remainingCapacity < 0 ? "text-red-500" : "text-green-500"}>
+                              {data.remainingCapacity.toFixed(2)}
+                            </TableCell>
+                            <TableCell>
+                              {data.isOverloaded ? (
+                                <Badge variant="destructive">Overloaded</Badge>
+                              ) : data.totalCapacity === 0 ? (
+                                <Badge variant="outline">No Capacity Set</Badge>
+                              ) : (
+                                <Badge variant="secondary">Under Capacity</Badge>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center text-muted-foreground">
+                            No team members or upcoming tasks for capacity planning.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                );
+              })()}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <IconFile size={20} />
+                Files
+              </CardTitle>
+              <form action={fileUploadAction} className="flex items-center gap-2">
+                <input type="hidden" name="projectId" value={project.id} />
+                <input type="file" name="file" ref={fileInputRef} required className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+                <FileUploadButton />
+              </form>
+            </CardHeader>
+            <CardContent>
+              {project.files.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>File Name</TableHead>
+                      <TableHead>Uploaded By</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead><span className="sr-only">Actions</span></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {project.files.map((file: FileWithUploadedBy) => (
+                      <TableRow key={file.id}>
+                        <TableCell>
+                          <a href={file.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-blue-600 hover:underline">
+                            <IconFile size={16} />
+                            {file.name}
+                          </a>
+                        </TableCell>
+                        <TableCell>{file.uploadedBy.name}</TableCell>
+                        <TableCell>{format(new Date(file.createdAt), "PPP")}</TableCell>
+                        <TableCell><FileActions file={file} projectId={project.id} /></TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <p className="text-muted-foreground">No files uploaded for this project yet.</p>
+              )}
+            </CardContent>
+          </Card>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="flex items-center gap-2">

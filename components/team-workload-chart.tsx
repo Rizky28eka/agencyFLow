@@ -2,7 +2,7 @@
 
 import { TeamWorkloadData } from "@/app/(internal)/internal/resource-management/actions";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { eachDayOfInterval, format, differenceInDays, startOfMonth, endOfMonth, isWithinInterval, addDays } from "date-fns";
+import { eachDayOfInterval, format, differenceInDays, startOfMonth, endOfMonth, isWithinInterval } from "date-fns";
 import React from "react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils"; // Import cn for conditional classnames

@@ -3,6 +3,7 @@ onlyBuiltDependencies:
   - '@prisma/engines'
   - '@swc/core'
   - '@tailwindcss/oxide'
+  - core-js
   - esbuild
   - prisma
   - sharp
