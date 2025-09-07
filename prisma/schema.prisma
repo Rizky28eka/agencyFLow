@@ -145,6 +145,7 @@ model Organization {
   contracts      Contract[]
   payments       Payment[]
   comments       Comment[]
+  auditLogs      AuditLog[]
 
   @@index([name])
   @@map("organizations")
@@ -184,6 +185,7 @@ model User {
   approvedFiles File[] @relation("ApprovedFiles")
   activities    Activity[]
   comments      Comment[]
+  auditLogs     AuditLog[]
 
   clientId String?
   client   Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
@@ -641,4 +643,23 @@ model Comment {
 
   @@index([entityId, entityType])
   @@map("comments")
+}
+
+model AuditLog {
+  id             String    @id @default(cuid())
+  entityType     String
+  entityId       String
+  action         String // e.g., 'CREATE', 'UPDATE', 'DELETE'
+  oldValue       Json? // Store old data as JSON
+  newValue       Json? // Store new data as JSON
+  changedByUserId String
+  changedByUser  User      @relation(fields: [changedByUserId], references: [id])
+  changedAt      DateTime  @default(now())
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([entityType, entityId])
+  @@index([changedByUserId])
+  @@map("audit_logs")
 }

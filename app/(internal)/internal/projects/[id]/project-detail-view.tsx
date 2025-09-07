@@ -10,7 +10,8 @@ import { ExpenseFormDialog, ExpenseActions } from "../../expenses/expense-form-d
 import { TaskFormDialog, TaskActions } from "../../tasks/task-form-dialog";
 import { TaskWithRelations } from '../../tasks/actions';
 import { TimeEntryFormDialog, TimeEntryActions } from "../../time-entries/time-entry-form-dialog";
-import { ProjectWithCalculatedFields, User, Expense, File, Client, updateProject } from '../../projects/actions'; // Changed Project to ProjectWithCalculatedFields
+import { ProjectWithCalculatedFields, Expense, File, Client, updateProject } from '../../projects/actions';
+import { User } from '@prisma/client';
 import { uploadFile, deleteFile } from '../../files/actions';
 import { Activity } from '../../activities/actions';
 import { format } from "date-fns";

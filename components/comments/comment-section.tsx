@@ -5,6 +5,8 @@ import { CommentEntityType } from '@prisma/client'; // Assuming this import path
 import { useSession } from 'next-auth/react'; // Assuming next-auth/react is used for session
 import Image from 'next/image'; // Import next/image
 import { addComment, getComments } from '@/app/actions/comments'; // Import server actions
+import { Skeleton } from "@/components/ui/skeleton"; // Import Skeleton
+import { v4 as uuidv4 } from 'uuid'; // Import uuid for temporary IDs
 
 interface Comment {
   id: string;
@@ -54,21 +56,34 @@ const CommentSection: React.FC<CommentSectionProps> = ({ entityId, entityType })
       return;
     }
 
+    const tempId = uuidv4(); // Generate a temporary ID
+    const newComment: Comment = {
+      id: tempId,
+      content: newCommentContent,
+      createdAt: new Date(), // Use current date for optimistic update
+      author: {
+        id: session.user.id as string,
+        name: session.user.name ?? null,
+        image: session.user.image ?? null,
+      },
+    };
+
+    // Optimistically add the new comment to the UI
+    setComments((prevComments) => [...prevComments, newComment]);
+    setNewCommentContent(''); // Clear input immediately
+
     try {
-      // Replace API call with server action
       const addedComment = await addComment(entityType, entityId, newCommentContent);
 
-      // Optimistically update UI or refetch comments
-      setComments((prevComments) => [...prevComments, {
-        ...addedComment,
-        author: {
-          id: session.user.id as string,
-          name: session.user.name ?? null,
-          image: session.user.image ?? null,
-        }
-      }]);
-      setNewCommentContent('');
+      // Replace the temporary comment with the actual comment from the server
+      setComments((prevComments) =>
+        prevComments.map((comment) =>
+          comment.id === tempId ? { ...addedComment, author: newComment.author } : comment
+        )
+      );
     } catch (err: unknown) {
+      // If the server action fails, remove the optimistically added comment
+      setComments((prevComments) => prevComments.filter((comment) => comment.id !== tempId));
       setError(err instanceof Error ? err.message : 'Failed to add comment');
       console.error('Error adding comment:', err);
     }
@@ -77,7 +92,13 @@ const CommentSection: React.FC<CommentSectionProps> = ({ entityId, entityType })
   return (
     <div className="space-y-4">
       <h3 className="text-lg font-semibold">Comments</h3>
-      {isLoading && <p>Loading comments...</p>}
+      {isLoading && (
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-[250px]" />
+          <Skeleton className="h-4 w-[200px]" />
+          <Skeleton className="h-4 w-[230px]" />
+        </div>
+      )}
       {error && <p className="text-red-500">{error}</p>}
       <div className="space-y-3 max-h-60 overflow-y-auto p-2 border rounded-md">
         {comments.length === 0 && !isLoading && <p className="text-gray-500">No comments yet.</p>}
