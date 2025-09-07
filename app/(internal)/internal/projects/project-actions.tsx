@@ -23,7 +23,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { deleteProject, ProjectWithCalculatedFields } from "./actions"
-import { ProjectFormDialog } from "./page"; // Import ProjectFormDialog
+import { ProjectFormDialog } from "@/components/project-form-dialog";
 
 export function ProjectActions({
   project,

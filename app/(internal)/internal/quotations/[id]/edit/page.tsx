@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DatePicker } from "@/components/ui/date-picker";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { QuotationStatus, Prisma } from "@prisma/client"; // Import QuotationItem
 import { PlusCircle, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,7 +24,9 @@ type QuotationItemForm = {
     serviceId?: string;
 };
 
-export default function EditQuotationPage({ params }: { params: { id: string } }) {
+export default function EditQuotationPage() {
+    const params = useParams();
+    const id = params.id as string;
     const router = useRouter();
     const [quotation, setQuotation] = useState<Quotation | null>(null);
     const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
@@ -38,22 +40,24 @@ export default function EditQuotationPage({ params }: { params: { id: string } }
 
     useEffect(() => {
         const fetchData = async () => {
-            const fetchedQuotation = await getQuotationById(params.id);
-            if (fetchedQuotation) {
-                setQuotation(fetchedQuotation);
-                setClientId(fetchedQuotation.clientId);
-                setIssueDate(new Date(fetchedQuotation.issueDate));
-                setExpiryDate(fetchedQuotation.expiryDate ? new Date(fetchedQuotation.expiryDate) : undefined);
-                setStatus(fetchedQuotation.status);
-                setItems(fetchedQuotation.items.map((item) => ({
-                    id: item.id,
-                    description: item.description,
-                    quantity: item.quantity,
-                    unitPrice: parseFloat(item.unitPrice.toString()),
-                    discountPct: item.discountPct ? parseFloat(item.discountPct.toString()) : undefined,
-                    taxPct: item.taxPct ? parseFloat(item.taxPct.toString()) : undefined,
-                    serviceId: item.serviceId ?? undefined,
-                })));
+            if (typeof id === 'string') {
+                const fetchedQuotation = await getQuotationById(id);
+                if (fetchedQuotation) {
+                    setQuotation(fetchedQuotation);
+                    setClientId(fetchedQuotation.clientId);
+                    setIssueDate(new Date(fetchedQuotation.issueDate));
+                    setExpiryDate(fetchedQuotation.expiryDate ? new Date(fetchedQuotation.expiryDate) : undefined);
+                    setStatus(fetchedQuotation.status);
+                    setItems(fetchedQuotation.items.map((item) => ({
+                        id: item.id,
+                        description: item.description,
+                        quantity: item.quantity,
+                        unitPrice: parseFloat(item.unitPrice.toString()),
+                        discountPct: item.discountPct ? parseFloat(item.discountPct.toString()) : undefined,
+                        taxPct: item.taxPct ? parseFloat(item.taxPct.toString()) : undefined,
+                        serviceId: item.serviceId ?? undefined,
+                    })));
+                }
             }
             const fetchedClients = await getClientsForSelection();
             setClients(fetchedClients);
@@ -61,7 +65,7 @@ export default function EditQuotationPage({ params }: { params: { id: string } }
             setServices(fetchedServices);
         };
         fetchData();
-    }, [params.id]);
+    }, [id]);
 
     const handleAddItem = () => {
         setItems([...items, { description: "", quantity: 1, unitPrice: 0 }]);
@@ -110,7 +114,10 @@ export default function EditQuotationPage({ params }: { params: { id: string } }
         }
 
         try {
-            await updateQuotation(params.id, {
+            if (typeof id !== 'string') {
+                throw new Error('Invalid quotation ID.');
+            }
+            await updateQuotation(id, {
                 clientId,
                 issueDate,
                 expiryDate,
@@ -121,7 +128,7 @@ export default function EditQuotationPage({ params }: { params: { id: string } }
                 })),
             });
             toast.success("Quotation updated successfully.");
-            router.push(`/internal/quotations/${params.id}`);
+            router.push(`/internal/quotations/${id}`);
         } catch (error) {
             toast.error("Failed to update quotation.");
             console.error("Update quotation error:", error);

@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -21,7 +21,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useEffect, useState } from "react";
 
-export default function QuotationDetailsPage({ params }: { params: { id: string } }) {
+export default function QuotationDetailsPage() {
+    const params = useParams();
     const router = useRouter();
     const [quotation, setQuotation] = useState<Quotation | null>(null); 
     const [loading, setLoading] = useState(true);
@@ -29,8 +30,10 @@ export default function QuotationDetailsPage({ params }: { params: { id: string 
     useEffect(() => {
         const fetchQuotation = async () => {
             try {
-                const fetchedQuotation = await getQuotationById(params.id);
-                setQuotation(fetchedQuotation);
+                if (typeof params.id === 'string') {
+                    const fetchedQuotation = await getQuotationById(params.id);
+                    setQuotation(fetchedQuotation);
+                }
             } catch (error) {
                 toast.error("Failed to load quotation.");
                 console.error("Fetch quotation error:", error);

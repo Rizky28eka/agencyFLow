@@ -15,7 +15,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 import { getServerSession } from "next-auth"
-import { authOptions } from "@/app/api/auth/[...nextauth]/route"
+import { authOptions } from "@/lib/auth"
 import { navItemsAdmin, navItemsClient, navSecondary, documents } from "@/config/navigation";
 
 export async function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {

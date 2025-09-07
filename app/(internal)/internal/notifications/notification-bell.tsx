@@ -10,6 +10,7 @@ import { Notification } from "@prisma/client"
 import Link from "next/link"
 import { toast } from "sonner"
 import useSWR from "swr"
+import { io } from "socket.io-client";
 
 const fetcher = (url: string) => fetch(url).then(res => res.json());
 
@@ -33,10 +34,39 @@ export function NotificationBell() {
     userId && orgId ? `/api/notifications?userId=${userId}&orgId=${orgId}` : null,
     fetcher,
     {
-      refreshInterval: 30000, // Poll for new notifications every 30 seconds
       dedupingInterval: 5000, // Dedupe requests within 5 seconds
+      revalidateOnFocus: false, // Prevent revalidation on window focus if using WebSockets
     }
   );
+
+  React.useEffect(() => {
+    if (!userId) return;
+
+    const socket = io(); // Connect to the Socket.IO server
+
+    socket.on('connect', () => {
+      console.log('Socket.IO connected');
+      socket.emit('joinRoom', userId); // Join a room for user-specific notifications
+    });
+
+    socket.on('newNotification', (newNotification: Notification) => {
+      console.log('[Socket.IO] Received new notification:', newNotification);
+      mutate(prev => [newNotification, ...(prev || [])], false); // Optimistically add new notification
+    });
+
+    socket.on('disconnect', () => {
+      console.log('Socket.IO disconnected');
+    });
+
+    socket.on('connect_error', (err) => {
+      console.error('Socket.IO connection error:', err);
+      toast.error("Failed to connect to notification server.");
+    });
+
+    return () => {
+      socket.disconnect(); // Disconnect on component unmount
+    };
+  }, [userId, mutate]);
 
   const unreadCount = Array.isArray(notifications) ? notifications.filter(n => !n.read).length : 0;
 
@@ -52,7 +82,6 @@ export function NotificationBell() {
         try {
           await markNotificationAsRead(notification.id);
           mutate(prev => prev?.map(n => n.id === notification.id ? { ...n, read: true } : n), false); // Optimistic update
-          // mutate(); // Revalidate after update if optimistic update is not enough
         } catch (error: unknown) {
           let errorMessage = "Failed to mark notification as read.";
           if (error instanceof Error) {
@@ -64,6 +93,8 @@ export function NotificationBell() {
       setOpen(false); // Close dropdown
     });
   };
+
+  
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>

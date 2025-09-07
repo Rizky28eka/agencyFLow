@@ -6,7 +6,7 @@ import { TaskStatus, Priority, Prisma } from "@prisma/client";
 import { createNotification } from "../notifications/actions";
 import { createActivity } from "../activities/actions"; // Import createActivity
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth";
 import { isManager } from "@/lib/permissions";
 
 export type Task = Prisma.TaskGetPayload<object>;

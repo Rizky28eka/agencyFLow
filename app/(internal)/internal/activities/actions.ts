@@ -3,7 +3,7 @@
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth";
 import { isManager } from "@/lib/permissions";
 export type Activity = Awaited<ReturnType<typeof prisma.activity.findMany>>[number];
 

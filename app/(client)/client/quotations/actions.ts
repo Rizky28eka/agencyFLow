@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { QuotationStatus, Prisma } from "@prisma/client";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth";
 import { createProjectFromQuotation } from "@/app/(internal)/internal/projects/actions"; // Re-use the project creation logic
 
 export type Quotation = Prisma.QuotationGetPayload<{

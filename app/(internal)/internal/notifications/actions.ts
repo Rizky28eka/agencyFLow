@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { prisma } from "@/lib/db"
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth";
 
 async function getAuthenticatedUser() {
     const session = await getServerSession(authOptions);
@@ -35,9 +35,26 @@ export async function createNotification(data: {
     return; // Or throw an error
   }
 
-  await prisma.notification.create({
+  const newNotification = await prisma.notification.create({
     data,
   });
+
+  // Emit Socket.IO event via API route
+  try {
+    await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/socket/emit`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        recipientId: data.recipientId,
+        notification: newNotification,
+      }),
+    });
+  } catch (error) {
+    console.error("Failed to emit Socket.IO event:", error);
+  }
+
   // Revalidate paths where notifications might be displayed (e.g., main layout)
   revalidatePath("/"); // Revalidate root path for now
 }

@@ -1,12 +1,9 @@
-'use client'
-
-import { getClientQuotationById, updateClientQuotationStatus, Quotation } from "../actions";
+import { getClientQuotationById, updateClientQuotationStatus } from "../actions";
 import { format } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -18,43 +15,10 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { QuotationStatus } from "@prisma/client";
-import { useEffect, useState } from "react";
 
-export default function ClientQuotationDetailsPage({ params }: { params: { id: string } }) {
-    const router = useRouter();
-    const [quotation, setQuotation] = useState<Quotation | null>(null); 
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        const fetchQuotation = async () => {
-            try {
-                const fetchedQuotation = await getClientQuotationById(params.id);
-                setQuotation(fetchedQuotation);
-            } catch (error) {
-                toast.error("Failed to load quotation.");
-                console.error("Fetch quotation error:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchQuotation();
-    }, [params.id]);
-
-    const handleStatusUpdate = async (status: QuotationStatus) => {
-        try {
-            await updateClientQuotationStatus(quotation!.id, status);
-            toast.success(`Quotation ${status.toLowerCase()} successfully.`);
-            router.refresh(); // Refresh the page to show updated status
-        } catch (error) {
-            toast.error(`Failed to ${status.toLowerCase()} quotation.`);
-            console.error(`Update quotation status error (${status}):`, error);
-        }
-    };
-
-    if (loading) {
-        return <div className="container mx-auto py-10 text-center">Loading quotation...</div>;
-    }
+export default async function ClientQuotationDetailsPage(props: PageProps<'/client/quotations/[id]'>) {
+    const params = await props.params;
+    const quotation = await getClientQuotationById(params.id);
 
     if (!quotation) {
         return <div className="container mx-auto py-10 text-center">Quotation not found or you do not have permission to view it.</div>;
@@ -101,7 +65,16 @@ export default function ClientQuotationDetailsPage({ params }: { params: { id: s
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => handleStatusUpdate("APPROVED")}>Approve</AlertDialogAction>
+                                    <AlertDialogAction onClick={async () => {
+                                        try {
+                                            await updateClientQuotationStatus(quotation.id, "APPROVED");
+                                            toast.success(`Quotation APPROVED successfully.`);
+                                            // router.refresh(); // Cannot use useRouter in Server Component
+                                        } catch (error) {
+                                            toast.error(`Failed to APPROVE quotation.`);
+                                            console.error(`Update quotation status error (APPROVED):`, error);
+                                        }
+                                    }}>Approve</AlertDialogAction>
                                 </AlertDialogFooter>
                             </AlertDialogContent>
                         </AlertDialog>
@@ -118,7 +91,16 @@ export default function ClientQuotationDetailsPage({ params }: { params: { id: s
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => handleStatusUpdate("REJECTED")}>Reject</AlertDialogAction>
+                                    <AlertDialogAction onClick={async () => {
+                                        try {
+                                            await updateClientQuotationStatus(quotation.id, "REJECTED");
+                                            toast.success(`Quotation REJECTED successfully.`);
+                                            // router.refresh(); // Cannot use useRouter in Server Component
+                                        } catch (error) {
+                                            toast.error(`Failed to REJECT quotation.`);
+                                            console.error(`Update quotation status error (REJECTED):`, error);
+                                        }
+                                    }}>Reject</AlertDialogAction>
                                 </AlertDialogFooter>
                             </AlertDialogContent>
                         </AlertDialog>
