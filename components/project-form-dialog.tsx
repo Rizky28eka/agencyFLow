@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { ProjectStatus } from "@prisma/client"
+import { ProjectStatus } from "@/types/db-models"
 import {
   addProject,
   updateProject,

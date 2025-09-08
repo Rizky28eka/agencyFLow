@@ -56,7 +56,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { getInvoices, getClients, getProjects, addInvoice, updateInvoice, deleteInvoice } from "./actions"
-import { Client, InvoiceStatus, ProjectStatus } from "@prisma/client"
+import { Client, InvoiceStatus, ProjectStatus } from "@/types/db-models"
 
 const statuses = Object.values(InvoiceStatus).map(status => ({ value: status, label: status.replace("_", " ") }))
 

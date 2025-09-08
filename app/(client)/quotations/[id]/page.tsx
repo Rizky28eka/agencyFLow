@@ -18,7 +18,13 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-export default async function ClientQuotationDetailsPage({ params }: { params: { id: string } }) {
+interface ClientQuotationDetailsPageProps {
+  params: {
+    id: string;
+  };
+}
+
+export default async function ClientQuotationDetailsPage({ params }: ClientQuotationDetailsPageProps) {
     const quotation = await getClientQuotationById(params.id);
 
     if (!quotation) {

@@ -4,7 +4,7 @@ import * as React from "react"
 import { ColumnDef } from "@tanstack/react-table"
 import { IconDots } from "@tabler/icons-react"
 import { toast } from "sonner"
-import { Currency } from "@prisma/client"
+import { Currency } from "@/types/db-models"
 
 import { Button } from "@/components/ui/button"
 import { DataTable } from "@/components/data-table"

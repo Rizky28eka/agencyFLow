@@ -10,7 +10,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useRouter, useParams } from "next/navigation";
-import { QuotationStatus, Prisma } from "@prisma/client"; 
+import { QuotationStatus } from "@/types/db-models"; 
 import { PlusCircle, Trash2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -31,7 +31,7 @@ export default function EditQuotationPage() {
     const router = useRouter();
     const [quotation, setQuotation] = useState<Quotation | null>(null);
     const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
-    const [services, setServices] = useState<{ id: string; name: string; defaultPrice: Prisma.Decimal; }[]>([]);
+    const [services, setServices] = useState<{ id: string; name: string; defaultPrice: number; }[]>([]);
 
     const [clientId, setClientId] = useState<string>("");
     const [issueDate, setIssueDate] = useState<Date | undefined>(new Date());

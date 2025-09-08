@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { toast } from "sonner";
-import { useRouter, useParams } from "next/navigation";
+
 import {
     AlertDialog,
     AlertDialogAction,
@@ -23,8 +23,14 @@ import { useEffect, useState } from "react";
 import { Separator } from "@/components/ui/separator";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-export default function QuotationDetailsPage() {
-    const params = useParams();
+interface QuotationDetailsPageProps {
+    params: {
+      id: string;
+    };
+  }
+  
+  export default function QuotationDetailsPage({ params }: QuotationDetailsPageProps) {
+    
     const router = useRouter();
     const [quotation, setQuotation] = useState<Quotation | null>(null); 
     const [loading, setLoading] = useState(true);

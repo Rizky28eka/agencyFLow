@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { DndContext, closestCorners, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { TaskStatus } from '@prisma/client';
+import { TaskStatus } from '@/types/task';
 import { updateTask, TaskWithRelations } from '@/app/(internal)/internal/tasks/actions';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';

@@ -3,7 +3,7 @@
 import { useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 import { getClientDashboardData } from '@/app/actions/client-data';
-import { Project, Invoice, Quotation, QuotationStatus } from '@prisma/client';
+import { Project, Invoice, Quotation, QuotationStatus } from '@/types/db-models';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 

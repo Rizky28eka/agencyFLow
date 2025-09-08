@@ -1,6 +1,6 @@
 "use client"
 
-import { Invoice, InvoiceStatus } from '@prisma/client';
+import { Invoice, InvoiceStatus } from '@/types/db-models';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { DataTable } from '@/components/data-table';
 import { ColumnDef } from '@tanstack/react-table';

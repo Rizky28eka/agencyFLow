@@ -1,6 +1,6 @@
 "use client"
 
-import { Project, ProjectStatus } from '@prisma/client';
+import { Project, ProjectStatus } from '@/types/db-models';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart';
 import { PieChart, Pie, Cell } from 'recharts';

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { FileApprovalStatus, CommentEntityType } from '@prisma/client';
+import { FileApprovalStatus, CommentEntityType } from '@/types/db-models';
 import { updateFileApprovalStatus } from '@/app/actions/files';
 import { useSession } from 'next-auth/react';
 import CommentSection from '@/components/comments/comment-section';
