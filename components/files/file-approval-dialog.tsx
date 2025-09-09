@@ -1,67 +1,112 @@
-
-"use client";
+'use client';
 
 import { useState } from 'react';
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { toast } from "sonner";
-import { updateFileApprovalStatus } from '@/app/actions/files';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { requestFileApproval, updateFileApprovalStatus } from '@/app/actions/files';
 import { FileApprovalStatus } from '@prisma/client';
 
-export function FileApprovalDialog({ file, action, open, onOpenChange, onSuccess }) {
-  const [feedback, setFeedback] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+interface FileApprovalDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+  fileId: string;
+  projectId: string;
+  currentStatus: FileApprovalStatus;
+  onStatusChange: () => void;
+}
 
-  const handleSubmit = async () => {
-    setIsSubmitting(true);
+export function FileApprovalDialog({
+  isOpen,
+  onClose,
+  fileId,
+  projectId,
+  currentStatus,
+  onStatusChange,
+}: FileApprovalDialogProps) {
+  const [clientFeedback, setClientFeedback] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleRequestApproval = async () => {
+    setIsLoading(true);
+    setError(null);
     try {
-      const newStatus = action === 'APPROVE' ? FileApprovalStatus.APPROVED : FileApprovalStatus.REVISION_NEEDED;
-      await updateFileApprovalStatus(file.id, newStatus, feedback);
-      toast.success(`File has been ${newStatus === 'APPROVED' ? 'approved' : 'marked for revision'}.`);
-      onSuccess();
-    } catch (error) {
-      toast.error("Failed to update file status.");
-      console.error(error);
+      await requestFileApproval(fileId, projectId);
+      onStatusChange();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to request approval');
     } finally {
-      setIsSubmitting(false);
-      onOpenChange(false);
+      setIsLoading(false);
+    }
+  };
+
+  const handleApprove = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      await updateFileApprovalStatus(fileId, FileApprovalStatus.APPROVED, clientFeedback);
+      onStatusChange();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to approve file');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRequestRevision = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      await updateFileApprovalStatus(fileId, FileApprovalStatus.REVISION_NEEDED, clientFeedback);
+      onStatusChange();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to request revision');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Confirm File {action === 'APPROVE' ? 'Approval' : 'Revision Request'}</DialogTitle>
-          <DialogDescription>
-            You are about to {action === 'APPROVE' ? 'approve' : 'request revisions for'} the file: <strong>{file.name}</strong>.
-          </DialogDescription>
+          <DialogTitle>File Approval Workflow</DialogTitle>
         </DialogHeader>
-        
-        {action === 'REVISE' && (
-          <div className="py-4">
-            <Label htmlFor="feedback">Feedback (Required)</Label>
-            <Textarea 
-              id="feedback"
-              placeholder="Please provide clear feedback for the team..."
-              value={feedback}
-              onChange={(e) => setFeedback(e.target.value)}
-              required
-            />
-          </div>
-        )}
-
+        <div className="grid gap-4 py-4">
+          <p>Current Status: {currentStatus}</p>
+          {currentStatus === FileApprovalStatus.PENDING && (
+            <div className="space-y-2">
+              <Label htmlFor="feedback">Client Feedback (Optional)</Label>
+              <Input
+                id="feedback"
+                value={clientFeedback}
+                onChange={(e) => setClientFeedback(e.target.value)}
+                placeholder="Add feedback for revision..."
+              />
+            </div>
+          )}
+          {error && <p className="text-red-500 text-sm">{error}</p>}
+        </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button 
-            onClick={handleSubmit} 
-            disabled={isSubmitting || (action === 'REVISE' && !feedback.trim())}
-            variant={action === 'APPROVE' ? 'success' : 'destructive'}
-          >
-            {isSubmitting ? 'Submitting...' : `Confirm ${action === 'APPROVE' ? 'Approval' : 'Revision'}`}
-          </Button>
+          {currentStatus === FileApprovalStatus.PENDING ? (
+            <>
+              <Button onClick={handleApprove} disabled={isLoading}>
+                {isLoading ? 'Approving...' : 'Approve'}
+              </Button>
+              <Button onClick={handleRequestRevision} disabled={isLoading} variant="outline">
+                {isLoading ? 'Requesting...' : 'Request Revision'}
+              </Button>
+            </>
+          ) : (
+            <Button onClick={handleRequestApproval} disabled={isLoading}>
+              {isLoading ? 'Requesting...' : 'Request Approval'}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
