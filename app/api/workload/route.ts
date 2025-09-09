@@ -1,73 +1,61 @@
-import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { prisma as db } from "@/lib/db";
-import { endOfMonth, startOfMonth, parseISO } from "date-fns";
+import { prisma } from '@/lib/db';
+import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
 
-export async function GET(req: Request) {
+export async function GET(request: Request) {
   const session = await getServerSession(authOptions);
-  if (!session?.user?.organizationId) {
-    return new NextResponse("Unauthorized", { status: 401 });
+  if (!session?.user?.id || !session.user.organizationId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { searchParams } = new URL(req.url);
-  const monthParam = searchParams.get("month"); // e.g., "2023-10-01"
-  
-  const targetDate = monthParam ? parseISO(monthParam) : new Date();
-  const startDate = startOfMonth(targetDate);
-  const endDate = endOfMonth(targetDate);
+  const { searchParams } = new URL(request.url);
+  const startDate = searchParams.get('startDate');
+  const endDate = searchParams.get('endDate');
 
-  try {
-    const usersWithTasks = await db.user.findMany({
-      where: {
-        organizationId: session.user.organizationId,
-        role: {
-          name: {
-            in: ["ADMIN", "PROJECT_MANAGER", "MEMBER"],
+  const users = await prisma.user.findMany({
+    where: { organizationId: session.user.organizationId },
+    select: {
+      id: true,
+      name: true,
+      dailyCapacityHours: true,
+      assignedTasks: {
+        where: {
+          dueDate: {
+            gte: startDate ? new Date(startDate) : undefined,
+            lte: endDate ? new Date(endDate) : undefined,
           },
         },
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        dailyCapacityHours: true,
-        assignedTasks: {
-          where: {
-            status: { 
-                notIn: ['DONE', 'CANCELLED']
-            },
-            OR: [
-              { startDate: { gte: startDate, lte: endDate } },
-              { dueDate: { gte: startDate, lte: endDate } },
-              { AND: [{ startDate: { lte: startDate } }, { dueDate: { gte: endDate } }] },
-            ],
-          },
-          select: {
-            id: true,
-            title: true,
-            estimatedHours: true,
-            startDate: true,
-            dueDate: true,
-            project: {
-              select: {
-                name: true,
-              },
-            },
-          },
+        select: {
+          estimatedHours: true,
         },
       },
-      orderBy: {
-        name: "asc",
+      timeEntries: {
+        where: {
+          startAt: {
+            gte: startDate ? new Date(startDate) : undefined,
+            lte: endDate ? new Date(endDate) : undefined,
+          },
+        },
+        select: {
+          seconds: true,
+        },
       },
-    });
+    },
+  });
 
-    // The chart component expects only users with tasks, so we filter them here.
-    const activeUsers = usersWithTasks.filter(user => user.assignedTasks.length > 0);
+  const workloadData = users.map(user => {
+    const totalEstimatedHours = user.assignedTasks.reduce((sum, task) => sum + (task.estimatedHours?.toNumber() || 0), 0);
+    const totalLoggedHours = user.timeEntries.reduce((sum, entry) => sum + (entry.seconds / 3600), 0);
 
-    return NextResponse.json(activeUsers);
-  } catch (error) {
-    console.error("[WORKLOAD_GET]", error);
-    return new NextResponse("Internal Server Error", { status: 500 });
-  }
+    return {
+      userId: user.id,
+      userName: user.name,
+      dailyCapacityHours: user.dailyCapacityHours?.toNumber() || 0,
+      totalEstimatedHours,
+      totalLoggedHours,
+    };
+  });
+
+  return NextResponse.json(workloadData);
 }
