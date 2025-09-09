@@ -754,5 +754,20 @@ model DashboardLayout {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  widgets DashboardWidget[]
+
   @@map("dashboard_layouts")
+}
+
+model DashboardWidget {
+  id        String   @id @default(cuid())
+  type      String   // e.g., 'ProjectProgress', 'TaskOverview', 'ProfitabilityChart', 'Workload'
+  config    Json     // Widget-specific configuration (e.g., { projectId: 'abc' })
+  layoutId  String
+  layout    DashboardLayout @relation(fields: [layoutId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([layoutId])
+  @@map("dashboard_widgets")
 }
