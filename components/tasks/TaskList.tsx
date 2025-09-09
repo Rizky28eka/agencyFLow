@@ -1,12 +1,12 @@
-import { useState, useCallback } from 'react';
-import { Button, buttonVariants } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Badge } from '@/components/ui/badge';
-import { AddTaskDialog } from './AddTaskDialog';
-import { EditTaskDialog } from './EditTaskDialog';
-import { LogTimeDialog } from './LogTimeDialog';
-import { TimeEntryList } from './TimeEntryList';
+import { useState } from "react";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { AddTaskDialog } from "./AddTaskDialog";
+import { EditTaskDialog } from "./EditTaskDialog";
+import { LogTimeDialog } from "./LogTimeDialog";
+import { TimeEntryList } from "./TimeEntryList";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,12 +16,12 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { ChevronDown } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { ChevronDown } from "lucide-react";
+import { cn } from "@/lib/utils";
+import Image from "next/image";
 
-// Define the Task type based on our Prisma schema
 export interface Task {
   id: string;
   title: string;
@@ -36,14 +36,43 @@ export interface Task {
   } | null;
 }
 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { ArrowUpDown } from "lucide-react";
+
 interface TaskListProps {
   projectId: string;
   tasks: Task[];
   isLoading: boolean;
-  onUpdate: () => void; // Callback to tell the parent to refetch
+  onUpdate: () => void;
+  userId: string;
+  sortBy: string;
+  setSortBy: (sortBy: string) => void;
+  sortOrder: "asc" | "desc";
+  setSortOrder: (sortOrder: "asc" | "desc") => void;
+  filter: string;
+  setFilter: (filter: string) => void;
 }
 
-export function TaskList({ projectId, tasks, isLoading, onUpdate }: TaskListProps) {
+export function TaskList({
+  projectId,
+  tasks,
+  isLoading,
+  onUpdate,
+  userId,
+  sortBy,
+  setSortBy,
+  sortOrder,
+  setSortOrder,
+  filter,
+  setFilter,
+}: TaskListProps) {
   const [isAddTaskOpen, setIsAddTaskOpen] = useState(false);
   const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
   const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
@@ -54,26 +83,30 @@ export function TaskList({ projectId, tasks, isLoading, onUpdate }: TaskListProp
     if (!taskToDelete) return;
 
     try {
-      const response = await fetch(`/api/projects/${projectId}/tasks/${taskToDelete.id}`, {
-        method: 'DELETE',
-      });
+      const response = await fetch(
+        `/api/projects/${projectId}/tasks/${taskToDelete.id}`,
+        {
+          method: "DELETE",
+        }
+      );
 
       if (!response.ok) {
-        throw new Error('Failed to delete task');
+        throw new Error("Failed to delete task");
       }
 
       toast.success(`Task "${taskToDelete.title}" has been deleted.`);
-      onUpdate(); // Tell parent to refetch
-      setTaskToDelete(null); // Close the dialog
+      onUpdate();
+      setTaskToDelete(null);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+      const errorMessage =
+        err instanceof Error ? err.message : "An unknown error occurred";
       toast.error(errorMessage);
     }
   };
 
   const handleToggleExpand = (taskId: string) => {
-    setExpandedTaskId(prevId => prevId === taskId ? null : taskId);
-  }
+    setExpandedTaskId((prevId) => (prevId === taskId ? null : taskId));
+  };
 
   if (isLoading) {
     return (
@@ -89,7 +122,7 @@ export function TaskList({ projectId, tasks, isLoading, onUpdate }: TaskListProp
               <Skeleton className="h-4 w-[200px]" />
             </div>
           </div>
-           <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-4">
             <Skeleton className="h-12 w-12 rounded-full" />
             <div className="space-y-2">
               <Skeleton className="h-4 w-[250px]" />
@@ -121,23 +154,31 @@ export function TaskList({ projectId, tasks, isLoading, onUpdate }: TaskListProp
         <LogTimeDialog
           taskId={logTimeTask.id}
           projectId={projectId}
+          userId={userId}
           open={!!logTimeTask}
           onOpenChange={() => setLogTimeTask(null)}
           onTimeLogged={onUpdate}
         />
       )}
-      <AlertDialog open={!!taskToDelete} onOpenChange={() => setTaskToDelete(null)}>
+      <AlertDialog
+        open={!!taskToDelete}
+        onOpenChange={() => setTaskToDelete(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the task
+              This action cannot be undone. This will permanently delete the
+              task
               <span className="font-semibold"> {taskToDelete?.title}</span>.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteTask} className={buttonVariants({ variant: "destructive" })}>
+            <AlertDialogAction
+              onClick={handleDeleteTask}
+              className={buttonVariants({ variant: "destructive" })}
+            >
               Continue
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -146,47 +187,130 @@ export function TaskList({ projectId, tasks, isLoading, onUpdate }: TaskListProp
 
       {/* Task List Card */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Tasks</CardTitle>
-          <Button onClick={() => setIsAddTaskOpen(true)}>Add Task</Button>
+        <CardHeader>
+          <div className="flex flex-row items-center justify-between">
+            <CardTitle>Tasks</CardTitle>
+            <Button onClick={() => setIsAddTaskOpen(true)}>Add Task</Button>
+          </div>
+          <div className="flex items-center space-x-2 mt-4">
+            <Input
+              placeholder="Filter tasks..."
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              className="max-w-sm"
+            />
+            <Select
+              value={sortBy}
+              onValueChange={(value: string) => {
+                setSortBy(value);
+                onUpdate();
+              }}
+            >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="dueDate">Due Date</SelectItem>
+                <SelectItem value="priority">Priority</SelectItem>
+                <SelectItem value="status">Status</SelectItem>
+                <SelectItem value="title">Title</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => {
+                setSortOrder(sortOrder === "asc" ? "desc" : "asc");
+                onUpdate();
+              }}
+            >
+              <ArrowUpDown className="h-4 w-4" />
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
             {tasks.length > 0 ? (
               tasks.map((task) => (
-                <div key={task.id} className="border rounded-lg overflow-hidden">
+                <div
+                  key={task.id}
+                  className="border rounded-lg overflow-hidden"
+                >
                   <div className="flex items-center justify-between p-3">
                     <div className="flex items-center gap-3">
-                      <Button size="icon" variant="ghost" onClick={() => handleToggleExpand(task.id)}>
-                        <ChevronDown className={cn("h-4 w-4 transition-transform", expandedTaskId === task.id && "rotate-180")} />
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => handleToggleExpand(task.id)}
+                      >
+                        <ChevronDown
+                          className={cn(
+                            "h-4 w-4 transition-transform",
+                            expandedTaskId === task.id && "rotate-180"
+                          )}
+                        />
                       </Button>
                       <div>
                         <p className="font-semibold">{task.title}</p>
                         <div className="flex items-center gap-2">
-                          <p className="text-sm text-gray-500">{task.status} - {task.priority}</p>
-                          <Badge variant="secondary">{task.totalHoursLogged.toFixed(2)}h logged</Badge>
+                          <p className="text-sm text-gray-500">
+                            {task.status} - {task.priority}
+                          </p>
+                          <Badge variant="secondary">
+                            {task.totalHoursLogged.toFixed(2)}h logged
+                          </Badge>
                         </div>
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
                       <div className="flex items-center space-x-2">
-                          <p className="text-sm">{task.assignee?.name || 'Unassigned'}</p>
-                          {task.assignee?.image ? (
-                            <img src={task.assignee.image} alt={task.assignee.name || ''} className="h-8 w-8 rounded-full" />
-                          ) : (
-                             <div className="h-8 w-8 rounded-full bg-gray-200" />
-                          )}
-                        </div>
-                        <Button variant="outline" size="sm" onClick={() => setLogTimeTask(task)}>Log Time</Button>
-                        <Button variant="outline" size="sm" onClick={() => setTaskToEdit(task)}>Edit</Button>
-                        <Button variant="destructive" size="sm" onClick={() => setTaskToDelete(task)}>Delete</Button>
-                     </div>
+                        <p className="text-sm">
+                          {task.assignee?.name || "Unassigned"}
+                        </p>
+                        {task.assignee?.image ? (
+                          <Image
+                            src={task.assignee.image}
+                            alt={task.assignee.name || ""}
+                            width={32}
+                            height={32}
+                            className="h-8 w-8 rounded-full"
+                          />
+                        ) : (
+                          <div className="h-8 w-8 rounded-full bg-gray-200" />
+                        )}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setLogTimeTask(task)}
+                      >
+                        Log Time
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setTaskToEdit(task)}
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => setTaskToDelete(task)}
+                      >
+                        Delete
+                      </Button>
+                    </div>
                   </div>
-                  {expandedTaskId === task.id && <TimeEntryList taskId={task.id} projectId={projectId} />}
+                  {expandedTaskId === task.id && (
+                    <TimeEntryList taskId={task.id} projectId={projectId} />
+                  )}
                 </div>
               ))
             ) : (
-              <p className="p-4 text-center text-muted-foreground">No tasks found for this project.</p>
+              <p className="p-4 text-center text-muted-foreground">
+                No tasks found for this project.
+              </p>
             )}
           </div>
         </CardContent>

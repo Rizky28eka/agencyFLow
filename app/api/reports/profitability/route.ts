@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma as db } from "@/lib/db";
 import { UserRole, InvoiceStatus } from "@prisma/client";
 
-export async function GET(req: Request) {
+export async function GET() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.organizationId) {
     return new NextResponse("Unauthorized", { status: 401 });

@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma as db } from "@/lib/db";
-import { TaskStatus, ProjectStatus, UserRole } from "@prisma/client";
+import { TaskStatus, ProjectStatus } from "@prisma/client";
+
 
 export async function PUT(
   req: Request,

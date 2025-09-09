@@ -148,6 +148,9 @@ model Organization {
   comments       Comment[]
   auditLogs      AuditLog[]
 
+  projectTemplates ProjectTemplate[]
+  automationRules  AutomationRule[]
+
   @@index([name])
   @@map("organizations")
 }
@@ -188,6 +191,10 @@ model User {
   activities    Activity[]
   comments      Comment[]
   auditLogs     AuditLog[]
+
+  mentionedInComments Comment[] @relation("CommentMentions")
+
+  dashboardLayout DashboardLayout? // One-to-one relation
 
   clientId String?
   client   Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
@@ -265,6 +272,103 @@ model Project {
   @@map("projects")
 }
 
+// ============================================================
+// Templates
+// ============================================================
+
+model ProjectTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  taskTemplates TaskTemplate[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("project_templates")
+}
+
+model TaskTemplate {
+  id             String    @id @default(cuid())
+  title          String
+  description    String?
+  priority       Priority  @default(MEDIUM)
+  estimatedHours Decimal?  @db.Decimal(6, 2)
+  sortIndex      Int?      @default(0)
+
+  projectTemplateId String
+  projectTemplate   ProjectTemplate @relation(fields: [projectTemplateId], references: [id], onDelete: Cascade)
+
+  // Fields for dependency templates (optional, for future enhancement)
+  // dependsOn: TaskTemplate[]
+
+  @@index([projectTemplateId])
+  @@map("task_templates")
+}
+
+// ============================================================
+// Automation Rules
+// ============================================================
+
+enum TriggerType {
+  TASK_STATUS_CHANGED
+  // Future possibilities: TASK_CREATED, COMMENT_ADDED, etc.
+}
+
+enum ActionType {
+  CHANGE_TASK_STATUS
+  ASSIGN_USER
+  SEND_NOTIFICATION
+  SEND_SLACK_MESSAGE
+  // Future possibilities: ARCHIVE_TASK, etc.
+}
+
+model AutomationRule {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  isEnabled   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  triggerId String       @unique
+  trigger   Trigger      @relation(fields: [triggerId], references: [id], onDelete: Cascade)
+  actions   Action[]
+
+  @@index([organizationId, isEnabled])
+  @@map("automation_rules")
+}
+
+model Trigger {
+  id     String      @id @default(cuid())
+  type   TriggerType
+  config Json // e.g., { "fromStatus": "IN_PROGRESS", "toStatus": "DONE" }
+
+  rule AutomationRule?
+
+  @@map("automation_triggers")
+}
+
+model Action {
+  id     String     @id @default(cuid())
+  type   ActionType
+  config Json // e.g., { "status": "IN_REVIEW" } or { "assigneeId": "user-id" }
+  
+  ruleId String
+  rule   AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@index([ruleId])
+  @@map("automation_actions")
+}
+
 model Contract {
   id        String         @id @default(cuid())
   title     String
@@ -307,6 +411,7 @@ model Task {
   startDate     DateTime?
   estimatedHours Decimal?  @db.Decimal(6, 2) // New field for estimated task hours
   sortIndex     Int?       @default(0) // untuk urutan kolom/board
+  gitUrl        String? // New field for Git integration
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
   deletedAt     DateTime?
@@ -645,6 +750,8 @@ model Comment {
   authorId String
   author   User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
+  mentionedUsers User[] @relation("CommentMentions")
+
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
@@ -669,4 +776,18 @@ model AuditLog {
   @@index([entityType, entityId])
   @@index([changedByUserId])
   @@map("audit_logs")
+}
+
+// User Settings & Layouts
+// ============================================================
+
+model DashboardLayout {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  layout    Json     // Stores an array of widget/section IDs in preferred order
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("dashboard_layouts")
 }

@@ -13,6 +13,26 @@ const handle = app.getRequestHandler();
 app.prepare().then(() => {
   const httpServer = createServer((req, res) => {
     const parsedUrl = parse(req.url, true);
+    const { pathname, query } = parsedUrl;
+
+    if (req.method === 'POST' && pathname === '/api/internal/socket/emit') {
+      let body = '';
+      req.on('data', chunk => {
+        body += chunk.toString();
+      });
+      req.on('end', () => {
+        const { event, data, room } = JSON.parse(body);
+        if (room) {
+          io.to(room).emit(event, data);
+        } else {
+          io.emit(event, data);
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true }));
+      });
+      return;
+    }
+
     handle(req, res, parsedUrl);
   });
 

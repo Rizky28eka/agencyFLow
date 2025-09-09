@@ -40,10 +40,32 @@ export async function sendSlackNotification(message: string) {
         throw new Error("Unauthorized: User not authenticated.");
     }
 
-    // For demonstration, we'll just log the message to the console.
-    // In a real scenario, you'd make an API call to Slack.
-    console.log(`[SLACK NOTIFICATION - from ${session.user.name || 'Unknown User'}] ${message}`);
+    const slackWebhookUrl = process.env.SLACK_WEBHOOK_URL;
 
-    // You might want to add more robust error handling and logging here.
-    return { success: true, message: "Slack notification simulated successfully." };
+    if (!slackWebhookUrl) {
+        console.warn("SLACK_WEBHOOK_URL is not set. Skipping Slack notification.");
+        return { success: false, message: "Slack webhook URL not configured." };
+    }
+
+    try {
+        const response = await fetch(slackWebhookUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ text: message }),
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`Failed to send Slack notification: ${response.status} - ${errorText}`);
+            return { success: false, message: `Failed to send Slack notification: ${errorText}` };
+        }
+
+        console.log(`[SLACK NOTIFICATION - from ${session.user.name || 'Unknown User'}] ${message}`);
+        return { success: true, message: "Slack notification sent successfully." };
+    } catch (error) {
+        console.error("Error sending Slack notification:", error);
+        return { success: false, message: "An unexpected error occurred while sending Slack notification." };
+    }
 }

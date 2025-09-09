@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma as db } from "@/lib/db";
-import { UserRole } from "@prisma/client";
+import { UserRole, Prisma } from "@prisma/client"; // Import Prisma
 
 export async function GET(
   req: Request,
@@ -15,9 +15,13 @@ export async function GET(
   }
 
   const { projectId } = params;
+  const { searchParams } = new URL(req.url);
+  const sortBy = searchParams.get('sortBy') || 'createdAt';
+  const sortOrder = searchParams.get('sortOrder') || 'asc';
+  const filter = searchParams.get('filter') || '';
 
   // Define a flexible where clause for security
-  const whereClause = {
+  const whereClause: Prisma.TaskWhereInput = {
     projectId: projectId,
     project: {
       organizationId: session.user.organizationId,
@@ -27,6 +31,28 @@ export async function GET(
       }),
     },
   };
+
+  // Add filtering by title or description
+  if (filter) {
+    whereClause.OR = [
+      { title: { contains: filter, mode: 'insensitive' } },
+      { description: { contains: filter, mode: 'insensitive' } },
+    ];
+  }
+
+  // Define orderBy clause
+  const orderByClause: Prisma.TaskOrderByWithRelationInput = {};
+  if (sortBy === 'dueDate') {
+    orderByClause.dueDate = sortOrder as Prisma.SortOrder;
+  } else if (sortBy === 'priority') {
+    orderByClause.priority = sortOrder as Prisma.SortOrder;
+  } else if (sortBy === 'status') {
+    orderByClause.status = sortOrder as Prisma.SortOrder;
+  } else if (sortBy === 'title') {
+    orderByClause.title = sortOrder as Prisma.SortOrder;
+  } else {
+    orderByClause.createdAt = sortOrder as Prisma.SortOrder; // Default sort
+  }
 
   try {
     // First, get the tasks for the project, ensuring user has access
@@ -41,9 +67,7 @@ export async function GET(
           },
         },
       },
-      orderBy: {
-        createdAt: "asc",
-      },
+      orderBy: orderByClause, // Apply dynamic orderBy
     });
 
     if (tasks.length === 0) {

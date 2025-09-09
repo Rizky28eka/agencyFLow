@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { GanttChart } from "@/components/gantt-chart";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
-import { IconArrowLeft, IconUser, IconCash, IconReceipt2, IconChecklist, IconClock, IconFile, IconDownload, IconDots, IconTrash, IconActivity, IconEdit } from "@tabler/icons-react";
+import { IconArrowLeft, IconUser, IconCash, IconReceipt2, IconChecklist, IconClock, IconFile, IconActivity, IconEdit } from "@tabler/icons-react";
 import Link from "next/link";
 import { ExpenseFormDialog, ExpenseActions } from "../../expenses/expense-form-dialog";
 import { TaskFormDialog, TaskActions } from "../../tasks/task-form-dialog";
@@ -12,7 +12,7 @@ import { TaskWithRelations } from '../../tasks/actions';
 import { TimeEntryFormDialog, TimeEntryActions } from "../../time-entries/time-entry-form-dialog";
 import { ProjectWithCalculatedFields, Expense, File, Client, updateProject } from '../../projects/actions';
 import { User } from '@prisma/client';
-import { uploadFile, deleteFile } from '../../files/actions';
+import { uploadFile } from '../../files/actions';
 import { Activity } from '../../activities/actions';
 import { format } from "date-fns";
 import { useActionState } from 'react';
@@ -20,10 +20,9 @@ import { useFormStatus } from 'react-dom';
 import { toast } from 'sonner';
 import * as React from "react";
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import ReactMarkdown from 'react-markdown';
 import { Textarea } from '@/components/ui/textarea';
+import { FileList } from "@/components/files/file-list";
 
 
 type SanitizedExpense = Omit<Expense, 'amount'> & { amount: string };
@@ -51,71 +50,6 @@ function FileUploadButton() {
     </Button>
   );
 }
-
-type FileActionsProps = {
-  file: File;
-  projectId: string;
-  onSuccess?: () => void;
-}
-
-function FileActions({ file, projectId, onSuccess }: FileActionsProps) {
-  const [, startTransition] = React.useTransition();
-
-  const handleDelete = () => {
-    startTransition(async () => {
-      const result = await deleteFile(file.id, projectId);
-      if (result.success) {
-        toast.success(result.message);
-        onSuccess?.();
-      } else {
-        toast.error(result.message);
-      }
-    });
-  };
-
-  return (
-    <AlertDialog>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="h-8 w-8 p-0">
-            <span className="sr-only">Open menu</span>
-            <IconDots className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem asChild>
-            <a href={file.url} target="_blank" rel="noopener noreferrer" className="flex items-center">
-              <IconDownload className="mr-2 h-4 w-4" />
-              Download
-            </a>
-          </DropdownMenuItem>
-          <AlertDialogTrigger asChild>
-            <DropdownMenuItem className="text-red-500">
-              <IconTrash className="mr-2 h-4 w-4" />
-              Delete
-            </DropdownMenuItem>
-          </AlertDialogTrigger>
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-          <AlertDialogDescription>
-            This action cannot be undone. This will permanently delete this file.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction onClick={handleDelete} className="bg-red-500 hover:bg-red-600">
-            Delete
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  );
-  
-}
-
 
 export type ActivityWithUser = Activity & { user: { name: string | null } };
 
@@ -430,79 +364,7 @@ export function ProjectDetailView({ project, users, timeEntries, activities }: {
               </form>
             </CardHeader>
             <CardContent>
-              {project.files.length > 0 ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>File Name</TableHead>
-                      <TableHead>Uploaded By</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead><span className="sr-only">Actions</span></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {project.files.map((file: FileWithUploadedBy) => (
-                      <TableRow key={file.id}>
-                        <TableCell>
-                          <a href={file.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-blue-600 hover:underline">
-                            <IconFile size={16} />
-                            {file.name}
-                          </a>
-                        </TableCell>
-                        <TableCell>{file.uploadedBy.name}</TableCell>
-                        <TableCell>{format(new Date(file.createdAt), "PPP")}</TableCell>
-                        <TableCell><FileActions file={file} projectId={project.id} /></TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              ) : (
-                <p className="text-muted-foreground">No files uploaded for this project yet.</p>
-              )}
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <IconFile size={20} />
-                Files
-              </CardTitle>
-              <form action={fileUploadAction} className="flex items-center gap-2">
-                <input type="hidden" name="projectId" value={project.id} />
-                <input type="file" name="file" ref={fileInputRef} required className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
-                <FileUploadButton />
-              </form>
-            </CardHeader>
-            <CardContent>
-              {project.files.length > 0 ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>File Name</TableHead>
-                      <TableHead>Uploaded By</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead><span className="sr-only">Actions</span></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {project.files.map((file: FileWithUploadedBy) => (
-                      <TableRow key={file.id}>
-                        <TableCell>
-                          <a href={file.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-blue-600 hover:underline">
-                            <IconFile size={16} />
-                            {file.name}
-                          </a>
-                        </TableCell>
-                        <TableCell>{file.uploadedBy.name}</TableCell>
-                        <TableCell>{format(new Date(file.createdAt), "PPP")}</TableCell>
-                        <TableCell><FileActions file={file} projectId={project.id} /></TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              ) : (
-                <p className="text-muted-foreground">No files uploaded for this project yet.</p>
-              )}
+                <FileList files={project.files} onUpdate={() => { /* In a real app, you would re-validate the data here */ }} />
             </CardContent>
           </Card>
         </div>

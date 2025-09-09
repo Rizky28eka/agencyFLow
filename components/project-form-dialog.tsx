@@ -29,6 +29,15 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 
+interface ProjectTemplate {
+  id: string;
+  name: string;
+  description: string | null;
+  _count: {
+    taskTemplates: number;
+  };
+}
+
 type ProjectWithClient = ProjectWithCalculatedFields; // Use the new type
 
 const statuses = Object.values(ProjectStatus).map((status) => ({
@@ -47,6 +56,23 @@ export function ProjectFormDialog({
 }) {
   const [open, setOpen] = React.useState(false)
   const [isPending, startTransition] = React.useTransition()
+  const [templates, setTemplates] = React.useState<ProjectTemplate[]>([])
+  const [selectedTemplate, setSelectedTemplate] = React.useState<string | null>(null)
+
+  React.useEffect(() => {
+    if (open && !project) { // Only fetch for new projects
+      const fetchTemplates = async () => {
+        try {
+          const response = await fetch("/api/project-templates");
+          const data = await response.json();
+          setTemplates(data);
+        } catch (error) {
+          console.error("Failed to fetch templates", error);
+        }
+      };
+      fetchTemplates();
+    }
+  }, [open, project]);
 
   const [form, setForm] = React.useState({
     name: project?.name || "",
@@ -71,24 +97,47 @@ export function ProjectFormDialog({
 
   async function handleSubmit() {
     startTransition(async () => {
-      const dataToSubmit = {
-        ...form,
-        startDate: form.startDate ? new Date(form.startDate) : null,
-        endDate: form.endDate ? new Date(form.endDate) : null,
-      }
       try {
         if (project) {
-          await updateProject(project.id, dataToSubmit)
-          toast.success("Project updated")
+          // Update existing project
+          const dataToSubmit = {
+            ...form,
+            startDate: form.startDate ? new Date(form.startDate) : null,
+            endDate: form.endDate ? new Date(form.endDate) : null,
+          };
+          await updateProject(project.id, dataToSubmit);
+          toast.success("Project updated");
+        } else if (selectedTemplate) {
+          // Create project from template
+          const response = await fetch(`/api/project-templates/${selectedTemplate}/create-project`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              projectName: form.name,
+              clientId: form.clientId,
+              startDate: form.startDate ? new Date(form.startDate) : null,
+              endDate: form.endDate ? new Date(form.endDate) : null,
+            }),
+          });
+          if (!response.ok) {
+            throw new Error("Failed to create project from template.");
+          }
+          toast.success("Project created from template");
         } else {
-          await addProject(dataToSubmit)
-          toast.success("Project added")
+          // Create new project manually
+          const dataToSubmit = {
+            ...form,
+            startDate: form.startDate ? new Date(form.startDate) : null,
+            endDate: form.endDate ? new Date(form.endDate) : null,
+          };
+          await addProject(dataToSubmit);
+          toast.success("Project added");
         }
-        setOpen(false)
-      } catch (error: unknown) { // Changed from any to unknown
-        toast.error(error instanceof Error ? error.message : "An unknown error occurred.")
+        setOpen(false);
+      } catch (error: unknown) {
+        toast.error(error instanceof Error ? error.message : "An unknown error occurred.");
       }
-    })
+    });
   }
 
   return (
@@ -110,6 +159,24 @@ export function ProjectFormDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
+          {!project && (
+              <div className="grid gap-2">
+                  <Label htmlFor="template">Use Template (Optional)</Label>
+                  <Select onValueChange={(value) => setSelectedTemplate(value === 'none' ? null : value)}>
+                      <SelectTrigger>
+                          <SelectValue placeholder="Select a template" />
+                      </SelectTrigger>
+                      <SelectContent>
+                          <SelectItem value="none">No template</SelectItem>
+                          {templates.map((template) => (
+                              <SelectItem key={template.id} value={template.id}>
+                                  {template.name}
+                              </SelectItem>
+                          ))}
+                      </SelectContent>
+                  </Select>
+              </div>
+          )}
           <div className="grid gap-2">
             <Label htmlFor="name">Project Name</Label>
             <Input

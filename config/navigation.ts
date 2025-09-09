@@ -10,6 +10,16 @@ export const navItemsAdmin = [
     icon: "projects",
   },
   {
+    title: "Project Templates",
+    url: "/internal/project-templates",
+    icon: "projects", // You might want to add a new icon for this
+  },
+  {
+    title: "Automations",
+    url: "/internal/automations",
+    icon: "settings", // Re-using an icon
+  },
+  {
     title: "Resource Management",
     url: "/internal/resource-management",
     icon: "resource-management",

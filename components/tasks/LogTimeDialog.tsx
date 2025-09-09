@@ -8,10 +8,12 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { DatePicker } from '@/components/ui/date-picker';
 import { toast } from 'sonner';
+import { addTimeEntry } from '@/app/actions/time-entries'; // Import the server action
 
 interface LogTimeDialogProps {
   taskId: string;
   projectId: string;
+  userId: string; // Add userId to props
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onTimeLogged: () => void;
@@ -52,21 +54,14 @@ export function LogTimeDialog({ taskId, projectId, open, onOpenChange, onTimeLog
     }
 
     try {
-      const response = await fetch(`/api/projects/${projectId}/tasks/${taskId}/time-entries`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-            hours: hoursAsNumber,
-            description,
-            date 
-        }),
+      await addTimeEntry({
+        hours: hoursAsNumber,
+        description,
+        date: date,
+        userId: userId, // Assuming userId is passed as a prop
+        taskId: taskId,
+        projectId: projectId,
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to log time');
-      }
 
       toast.success('Time logged successfully!');
       onTimeLogged();

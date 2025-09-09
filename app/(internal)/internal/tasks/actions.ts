@@ -155,6 +155,7 @@ export async function addTask(data: {
   estimatedHours?: number | null; // Add estimatedHours
   projectId: string;
   assigneeId?: string | null;
+  gitUrl?: string | null; // Add git URL
 }): Promise<Task> {
   const user = await getAuthenticatedUser();
   if (!isManager(user)) {
@@ -165,8 +166,9 @@ export async function addTask(data: {
     data: {
       ...data,
       assigneeId: data.assigneeId === "" ? null : data.assigneeId,
-      estimatedHours: data.estimatedHours, // Save estimatedHours
-      startDate: data.startDate, // Save startDate
+      estimatedHours: data.estimatedHours,
+      startDate: data.startDate,
+      gitUrl: data.gitUrl,
     },
   });
 
@@ -206,8 +208,9 @@ export async function updateTask(
     priority?: Priority;
     dueDate?: Date | null;
     startDate?: Date | null;
-    estimatedHours?: number | null; // Add estimatedHours
+    estimatedHours?: number | null;
     assigneeId?: string | null;
+    gitUrl?: string | null; // Add git URL
   }
 ) {
   const user = await getAuthenticatedUser();
@@ -225,8 +228,9 @@ export async function updateTask(
     data: {
       ...data,
       assigneeId: data.assigneeId === "" ? null : data.assigneeId,
-      estimatedHours: data.estimatedHours, // Save estimatedHours
-      startDate: data.startDate, // Save startDate
+      estimatedHours: data.estimatedHours,
+      startDate: data.startDate,
+      gitUrl: data.gitUrl,
     },
   });
 

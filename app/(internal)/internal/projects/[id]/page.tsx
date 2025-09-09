@@ -8,7 +8,7 @@ import type { ProjectDetailProps, UserListProps, TimeEntryWithRelations, Activit
 import { notFound } from "next/navigation";
 
 export default async function Page({ params }: { params: { id: string } }) {
-  const id = params.id;
+  const { id } = params;
 
   // Parallel data fetching
   const [project, users, timeEntries, activities, files] = await Promise.all([

@@ -100,7 +100,7 @@ export function KanbanBoard({ initialTasks }: KanbanBoardProps) {
     if (taskToMove && taskToMove.status !== newStatus) {
       const originalStatus = taskToMove.status;
 
-      // Optimistic update
+      
       setTasks(prevTasks =>
         prevTasks.map(task =>
           task.id === activeTaskId ? { ...task, status: newStatus } : task
@@ -125,7 +125,7 @@ export function KanbanBoard({ initialTasks }: KanbanBoardProps) {
       } catch (error) {
         console.error('Failed to update task status:', error);
         toast.error('Failed to update task status.');
-        // Revert optimistic update on error
+        
         setTasks(prevTasks =>
           prevTasks.map(task =>
             task.id === activeTaskId ? { ...task, status: originalStatus } : task

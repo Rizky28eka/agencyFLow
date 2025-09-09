@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import ClientProjectsSection from '@/components/client-dashboard/ClientProjectsSection';
 import ClientBillingSection from '@/components/client-dashboard/ClientBillingSection';
 import ClientQuotationsSection from '@/components/client-dashboard/ClientQuotationsSection';
+import { TeamWorkloadChart } from '@/components/team-workload-chart'; // Import TeamWorkloadChart
 
 function StatCard({ title, value, isLoading }: { title: string; value: string | number; isLoading: boolean }) {
   return (
@@ -84,6 +85,11 @@ export default function ClientDashboardPage() {
         <ClientProjectsSection projects={projects} />
         <ClientQuotationsSection quotations={quotations} />
         <ClientBillingSection invoices={invoices} outstandingInvoices={outstandingInvoices} />
+      </div>
+
+      {/* Team Workload Capacity Section */}
+      <div className="mt-6">
+        <TeamWorkloadChart />
       </div>
     </div>
   );
