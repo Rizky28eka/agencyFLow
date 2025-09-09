@@ -27,7 +27,7 @@ interface CalendarEvent {
   start: Date;
   end: Date;
   allDay?: boolean;
-  resource?: any;
+  resource?: Record<string, unknown>;
 }
 
 export default function CalendarPage() {
@@ -81,12 +81,12 @@ export default function CalendarPage() {
     fetchData();
   }, []);
 
-  const onEventDrop = ({ event, start, end, allDay }: any) => {
+  const onEventDrop = ({ event, start, end, allDay }: { event: CalendarEvent, start: Date, end: Date, allDay: boolean }) => {
     // Update event in backend
     console.log('Event dropped:', event, start, end, allDay);
   };
 
-  const onEventResize = ({ event, start, end, allDay }: any) => {
+  const onEventResize = ({ event, start, end, allDay }: { event: CalendarEvent, start: Date, end: Date, allDay: boolean }) => {
     // Update event in backend
     console.log('Event resized:', event, start, end, allDay);
   };

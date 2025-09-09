@@ -2,7 +2,6 @@
 import { render } from '@testing-library/react';
 import { expect, it, vi } from 'vitest';
 import CalendarPage from '@/app/(internal)/internal/calendar/page';
-import * as projectViews from '@/app/actions/project-views';
 
 vi.mock('@/app/actions/project-views', () => ({
   getCalendarEvents: vi.fn(() =>
