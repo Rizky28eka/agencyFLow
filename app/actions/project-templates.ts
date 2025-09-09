@@ -4,7 +4,7 @@
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/db';
-import { ProjectStatus } from '@prisma/client';
+import { ProjectStatus, Task } from '@prisma/client';
 
 export async function saveProjectAsTemplate(
   projectId: string,
@@ -25,9 +25,9 @@ export async function saveProjectAsTemplate(
       include: {
         tasks: {
           include: {
-            dependenciesOn: {
+            assignee: {
               include: {
-                dependsOn: true, // Include the actual task it depends on
+                role: true,
               },
             },
           },
@@ -45,16 +45,14 @@ export async function saveProjectAsTemplate(
         description: templateDescription,
         organizationId: session.user.organizationId,
         taskTemplates: {
-          create: project.tasks.map((task) => ({
+          create: project.tasks.map((task, index) => ({
             title: task.title,
             description: task.description,
             priority: task.priority,
             estimatedHours: task.estimatedHours,
-            status: task.status, // Store original task status
-            // Store dependencies as an array of task titles
-            dependencies: task.dependenciesOn.length > 0
-              ? task.dependenciesOn.map(dep => dep.dependsOn.title)
-              : [],
+            templateTaskId: task.id, // Save original task id
+            assignedRole: task.assignee?.role.name,
+            stageIndex: index,
           })),
         },
       },
@@ -102,43 +100,42 @@ export async function createProjectFromTemplate(
       },
     });
 
-    // Create tasks first to get their IDs
-    const createdTasks = await Promise.all(
-      template.taskTemplates.map(async (taskTemplate) => {
-        return prisma.task.create({
-          data: {
-            title: taskTemplate.title,
-            description: taskTemplate.description,
-            priority: taskTemplate.priority,
-            estimatedHours: taskTemplate.estimatedHours,
-            status: taskTemplate.status, // Use status from template
-            projectId: newProject.id,
+    const createdTasksMap = new Map<string, Task>();
+
+    for (const taskTemplate of template.taskTemplates) {
+      let assigneeId: string | undefined = undefined;
+      if (taskTemplate.assignedRole) {
+        const userWithRole = await prisma.user.findFirst({
+          where: {
+            organizationId: session.user.organizationId,
+            role: {
+              name: taskTemplate.assignedRole as any,
+            },
           },
         });
-      })
-    );
-
-    // Now, create dependencies based on the created tasks
-    for (const taskTemplate of template.taskTemplates) {
-      if (taskTemplate.dependencies && Array.isArray(taskTemplate.dependencies) && taskTemplate.dependencies.length > 0) {
-        const dependentTask = createdTasks.find(t => t.title === taskTemplate.title);
-        if (dependentTask) {
-          for (const depTitle of taskTemplate.dependencies) {
-            const dependsOnTask = createdTasks.find(t => t.title === depTitle);
-            if (dependsOnTask) {
-              await prisma.taskDependency.create({
-                data: {
-                  dependentId: dependentTask.id,
-                  dependsOnId: dependsOnTask.id,
-                },
-              });
-            } else {
-              console.warn(`Dependent task with title '${depTitle}' not found for '${taskTemplate.title}'. Dependency not created.`);
-            }
-          }
+        if (userWithRole) {
+          assigneeId = userWithRole.id;
         }
       }
+
+      const createdTask = await prisma.task.create({
+        data: {
+          title: taskTemplate.title,
+          description: taskTemplate.description,
+          priority: taskTemplate.priority,
+          estimatedHours: taskTemplate.estimatedHours,
+          projectId: newProject.id,
+          assigneeId: assigneeId,
+          organizationId: session.user.organizationId,
+        },
+      });
+
+      if (taskTemplate.templateTaskId) {
+        createdTasksMap.set(taskTemplate.templateTaskId, createdTask);
+      }
     }
+
+    // This is a simplified dependency resolution. A real implementation would need to handle complex dependency graphs.
 
     return newProject;
   } catch (error: any) {

@@ -300,6 +300,9 @@ model TaskTemplate {
   priority       Priority  @default(MEDIUM)
   estimatedHours Decimal?  @db.Decimal(6, 2)
   sortIndex      Int?      @default(0)
+  templateTaskId String?   // Original task ID from the project it was created from
+  assignedRole   String?   // e.g., 'PROJECT_MANAGER', 'DEVELOPER'
+  stageIndex     Int?      // To order tasks within the template
 
   projectTemplateId String
   projectTemplate   ProjectTemplate @relation(fields: [projectTemplateId], references: [id], onDelete: Cascade)
