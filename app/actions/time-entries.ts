@@ -1,29 +1,33 @@
+
 "use server";
 
 import { prisma } from "@/lib/db";
-import { TimeEntry, Prisma } from "@prisma/client";
+import { TimeEntry } from "@prisma/client";
 import { revalidatePath } from "next/cache";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 export type TimeEntryInput = {
-  hours: number;
-  date: Date;
-  description?: string;
-  userId: string;
-  taskId?: string;
+  taskId: string;
   projectId: string;
-  hourlyRate?: number;
-  currency?: string;
+  startAt: Date;
+  endAt?: Date;
+  seconds: number;
+  description?: string;
 };
 
 export async function addTimeEntry(data: TimeEntryInput): Promise<TimeEntry> {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    throw new Error("Unauthorized");
+  }
+
   const newTimeEntry = await prisma.timeEntry.create({
     data: {
       ...data,
-      hours: new Prisma.Decimal(data.hours),
-      hourlyRate: data.hourlyRate ? new Prisma.Decimal(data.hourlyRate) : undefined,
+      userId: session.user.id,
     },
   });
-  revalidatePath("/internal/time-entries");
   revalidatePath(`/internal/tasks/${data.taskId}`);
   return newTimeEntry;
 }
@@ -31,13 +35,8 @@ export async function addTimeEntry(data: TimeEntryInput): Promise<TimeEntry> {
 export async function updateTimeEntry(id: string, data: Partial<TimeEntryInput>): Promise<TimeEntry> {
   const updatedTimeEntry = await prisma.timeEntry.update({
     where: { id },
-    data: {
-      ...data,
-      hours: data.hours ? new Prisma.Decimal(data.hours) : undefined,
-      hourlyRate: data.hourlyRate ? new Prisma.Decimal(data.hourlyRate) : undefined,
-    },
+    data,
   });
-  revalidatePath("/internal/time-entries");
   revalidatePath(`/internal/tasks/${updatedTimeEntry.taskId}`);
   return updatedTimeEntry;
 }
@@ -46,7 +45,6 @@ export async function deleteTimeEntry(id: string): Promise<TimeEntry> {
   const deletedTimeEntry = await prisma.timeEntry.delete({
     where: { id },
   });
-  revalidatePath("/internal/time-entries");
   revalidatePath(`/internal/tasks/${deletedTimeEntry.taskId}`);
   return deletedTimeEntry;
 }
@@ -54,7 +52,7 @@ export async function deleteTimeEntry(id: string): Promise<TimeEntry> {
 export async function getTimeEntriesByTask(taskId: string): Promise<TimeEntry[]> {
   const timeEntries = await prisma.timeEntry.findMany({
     where: { taskId },
-    orderBy: { date: "desc" },
+    orderBy: { startAt: "desc" },
   });
   return timeEntries;
 }
@@ -63,12 +61,12 @@ export async function getTimeEntriesByUser(userId: string, startDate?: Date, end
   const timeEntries = await prisma.timeEntry.findMany({
     where: {
       userId,
-      date: {
+      startAt: {
         gte: startDate,
         lte: endDate,
       },
     },
-    orderBy: { date: "desc" },
+    orderBy: { startAt: "desc" },
   });
   return timeEntries;
 }
