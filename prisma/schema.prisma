@@ -172,6 +172,7 @@ model User {
   updatedAt            DateTime  @updatedAt
   deletedAt            DateTime?
   dailyCapacityHours   Decimal?  @db.Decimal(4, 2) // New field for user's daily capacity
+  hourlyCost           Decimal?  @db.Decimal(10, 2) // Internal cost rate for profitability calculation
 
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -315,6 +316,11 @@ model Task {
 
   assigneeId String?
   assignee   User?     @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
+
+  // Relasi untuk Sub-tugas
+  parentId  String?
+  parent    Task?   @relation("TaskSubTask", fields: [parentId], references: [id], onDelete: Cascade)
+  children  Task[]  @relation("TaskSubTask")
 
   dependenciesOn TaskDependency[] @relation("DependsOn")
   dependentTasks TaskDependency[] @relation("DependentTasks")

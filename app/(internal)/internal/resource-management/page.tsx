@@ -20,7 +20,7 @@ export default function ResourceManagementPage() {
   }, [month]);
 
   return (
-    <div className="space-y-4">
+    <div className="p-6 space-y-4">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Resource Management</h1>
         <div className="flex items-center space-x-4">

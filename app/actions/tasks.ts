@@ -26,7 +26,11 @@ export async function getMyTasks() {
         dueDate: 'asc',
       },
     });
-    return tasks;
+    return tasks.map(task => ({
+      ...task,
+      estimatedHours: task.estimatedHours?.toNumber(),
+      actualHours: task.actualHours?.toNumber(),
+    }));
   } catch (error) {
     console.error('Failed to get tasks:', error);
     throw new Error('Failed to get tasks');

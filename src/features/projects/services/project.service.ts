@@ -135,7 +135,13 @@ export async function getProjectByIdService(id: string, user: User) {
         timeEntries: timeEntries,
         totalBillableTime: totalBillableTime,
         profitability,
-        budget: project.budget ? parseFloat(project.budget.toString()) : null,
+        budget: project.budget ? project.budget.toNumber() : null,
+        hourlyRate: project.hourlyRate ? project.hourlyRate.toNumber() : null,
+        tasks: project.tasks.map(task => ({
+            ...task,
+            estimatedHours: task.estimatedHours ? task.estimatedHours.toNumber() : null,
+            actualHours: task.actualHours ? task.actualHours.toNumber() : null,
+        })),
     };
 }
 

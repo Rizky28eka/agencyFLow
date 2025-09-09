@@ -18,6 +18,8 @@ import { format } from "date-fns"
 import { toast } from "sonner"
 import { addTask, updateTask, deleteTask, addTaskDependency, removeTaskDependency, getProjectTasksForDependencies } from "./actions"
 import { User, TaskWithRelations } from "./actions" // Import TaskWithRelations
+import { addTimeEntry, getTimeEntriesByTask, TimeEntryInput } from '@/app/actions/time-entries';
+import { TimeEntry } from '@prisma/client'; // Temporary import, will move to types/db-models.ts
 
 enum TaskStatus {
   TO_DO = "TO_DO",
@@ -51,6 +53,9 @@ export function TaskFormDialog({ projectId, task, trigger, onSuccess, users }: T
   const [dateOpen, setDateOpen] = React.useState(false);
   const [availableDependencies, setAvailableDependencies] = React.useState<{ id: string; title: string }[]>([]);
   const [selectedDependencies, setSelectedDependencies] = React.useState<string[]>([]);
+  const [timeEntries, setTimeEntries] = React.useState<TimeEntry[]>([]);
+  const [newTimeEntryHours, setNewTimeEntryHours] = React.useState<string>('');
+  const [newTimeEntryDescription, setNewTimeEntryDescription] = React.useState<string>('');
 
   React.useEffect(() => {
     if (open) {
@@ -65,6 +70,16 @@ export function TaskFormDialog({ projectId, task, trigger, onSuccess, users }: T
         setSelectedDependencies(task.dependenciesOn.map(dep => dep.dependsOnId));
       } else {
         setSelectedDependencies([]);
+      }
+
+      // Fetch time entries for the current task
+      if (task?.id) {
+        startTransition(async () => {
+          const fetchedTimeEntries = await getTimeEntriesByTask(task.id);
+          setTimeEntries(fetchedTimeEntries);
+        });
+      } else {
+        setTimeEntries([]);
       }
     }
   }, [open, projectId, task?.id, task?.dependenciesOn]);
@@ -281,6 +296,47 @@ export function TaskFormDialog({ projectId, task, trigger, onSuccess, users }: T
       </DialogContent>
     </Dialog>
   );
+
+  async function handleAddTimeEntry() {
+    if (!task?.id || !newTimeEntryHours) {
+      toast.error("Task ID and hours are required.");
+      return;
+    }
+    if (!projectId) {
+      toast.error("Project ID is required for time entry.");
+      return;
+    }
+    if (!users || users.length === 0) {
+      toast.error("User information is not available for time entry.");
+      return;
+    }
+
+    const currentUser = users.find(user => user.id === form.assigneeId); // Assuming assignee is the one logging time
+    if (!currentUser) {
+      toast.error("Assigned user not found.");
+      return;
+    }
+
+    try {
+      const newEntry: TimeEntryInput = {
+        hours: parseFloat(newTimeEntryHours),
+        date: new Date(),
+        description: newTimeEntryDescription || undefined,
+        userId: currentUser.id,
+        taskId: task.id,
+        projectId: projectId,
+        // currency and hourlyRate can be added if available from user/project context
+      };
+      const addedEntry = await addTimeEntry(newEntry);
+      setTimeEntries(prev => [...prev, addedEntry]);
+      setNewTimeEntryHours('');
+      setNewTimeEntryDescription('');
+      toast.success("Time entry added successfully.");
+    } catch (error) {
+      toast.error("Failed to add time entry.");
+      console.error("Add time entry error:", error);
+    }
+  }
 
   
 }

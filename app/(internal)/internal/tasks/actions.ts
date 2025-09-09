@@ -12,7 +12,7 @@ import { isManager } from "@/lib/permissions";
 export type Task = Prisma.TaskGetPayload<object>;
 export type User = Prisma.UserGetPayload<object>;
 
-export type TaskWithRelations = Prisma.TaskGetPayload<{
+export type TaskWithRelations = Omit<Prisma.TaskGetPayload<{
   include: {
     project: {
       select: {
@@ -46,7 +46,10 @@ export type TaskWithRelations = Prisma.TaskGetPayload<{
       };
     };
   };
-}>;
+}>, 'estimatedHours' | 'actualHours'> & {
+  estimatedHours: number | null;
+  actualHours: number | null;
+};
 
 export async function getProjectTasksForDependencies(projectId: string, excludeTaskId?: string) {
   const user = await getAuthenticatedUser();

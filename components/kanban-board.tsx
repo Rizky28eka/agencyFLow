@@ -5,7 +5,6 @@ import { DndContext, closestCorners, KeyboardSensor, PointerSensor, useSensor, u
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { TaskStatus } from '@/types/task';
-import { updateTask, TaskWithRelations } from '@/app/(internal)/internal/tasks/actions';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
@@ -109,7 +108,19 @@ export function KanbanBoard({ initialTasks }: KanbanBoardProps) {
       );
 
       try {
-        await updateTask(activeTaskId, taskToMove.projectId, { status: newStatus });
+        const response = await fetch(`/api/projects/${taskToMove.projectId}/tasks/${activeTaskId}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ status: newStatus }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to update task status');
+        }
+
         toast.success(`Task "${taskToMove.title}" moved to ${newStatus.replace(/_/g, ' ')}.`);
       } catch (error) {
         console.error('Failed to update task status:', error);
