@@ -1,72 +1,45 @@
+import { prisma } from '@/lib/db';
+import { NextResponse } from 'next/server';
 
-import { NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { prisma as db } from "@/lib/db";
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const organizationId = searchParams.get('organizationId');
 
-interface Action {
-  type: string;
-  config: any; // This can be refined later
+  if (!organizationId) {
+    return NextResponse.json({ error: 'organizationId is required' }, { status: 400 });
+  }
+
+  const rules = await prisma.automationRule.findMany({
+    where: { organizationId },
+    include: { actions: true },
+  });
+
+  return NextResponse.json(rules);
 }
 
-// GET all automation rules
-export async function GET() {
-  const session = await getServerSession(authOptions);
-  if (!session) {
-    return new NextResponse("Unauthorized", { status: 401 });
+export async function POST(request: Request) {
+  const body = await request.json();
+  const { name, trigger, conditions, actions, organizationId } = body;
+
+  if (!name || !trigger || !organizationId) {
+    return NextResponse.json({ error: 'name, trigger, and organizationId are required' }, { status: 400 });
   }
 
-  try {
-    const rules = await db.automationRule.findMany({
-      where: {
-        organizationId: session.user.organizationId,
+  const rule = await prisma.automationRule.create({
+    data: {
+      name,
+      trigger,
+      conditions,
+      organizationId,
+      actions: {
+        create: actions.map((action: { type: string, config: Record<string, unknown> }) => ({
+          type: action.type,
+          config: action.config,
+        })),
       },
-      include: { trigger: true, actions: true },
-    });
-    return NextResponse.json(rules);
-  } catch (error) {
-    console.error("[AUTOMATION_RULES_GET]", error);
-    return new NextResponse("Internal Server Error", { status: 500 });
-  }
-}
+    },
+    include: { actions: true },
+  });
 
-// POST a new automation rule
-export async function POST(req: Request) {
-  const session = await getServerSession(authOptions);
-  if (!session) {
-    return new NextResponse("Unauthorized", { status: 401 });
-  }
-
-  const { name, description, trigger, actions } = await req.json();
-
-  if (!name || !trigger || !actions || actions.length === 0) {
-    return new NextResponse("Bad Request: Missing required fields", { status: 400 });
-  }
-
-  try {
-    const newRule = await db.automationRule.create({
-      data: {
-        name,
-        description,
-        organizationId: session.user.organizationId,
-        trigger: {
-          create: {
-            type: trigger.type,
-            config: trigger.config,
-          },
-        },
-        actions: {
-          create: actions.map((action: Action) => ({
-            type: action.type,
-            config: action.config,
-          })),
-        },
-      },
-      include: { trigger: true, actions: true },
-    });
-    return NextResponse.json(newRule, { status: 201 });
-  } catch (error) {
-    console.error("[AUTOMATION_RULES_POST]", error);
-    return new NextResponse("Internal Server Error", { status: 500 });
-  }
+  return NextResponse.json(rule, { status: 201 });
 }

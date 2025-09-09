@@ -315,58 +315,25 @@ model TaskTemplate {
 // Automation Rules
 // ============================================================
 
-enum TriggerType {
-  TASK_STATUS_CHANGED
-  // Future possibilities: TASK_CREATED, COMMENT_ADDED, etc.
-}
-
-enum ActionType {
-  CHANGE_TASK_STATUS
-  ASSIGN_USER
-  SEND_NOTIFICATION
-  SEND_SLACK_MESSAGE
-  // Future possibilities: ARCHIVE_TASK, etc.
-}
-
 model AutomationRule {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  isEnabled   Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
+  id         String   @id @default(cuid())
+  name       String
+  trigger    String
+  conditions Json?
+  actions    AutomationAction[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  triggerId String       @unique
-  trigger   Trigger      @relation(fields: [triggerId], references: [id], onDelete: Cascade)
-  actions   Action[]
-
-  @@index([organizationId, isEnabled])
-  @@map("automation_rules")
 }
 
-model Trigger {
-  id     String      @id @default(cuid())
-  type   TriggerType
-  config Json // e.g., { "fromStatus": "IN_PROGRESS", "toStatus": "DONE" }
-
-  rule AutomationRule?
-
-  @@map("automation_triggers")
-}
-
-model Action {
-  id     String     @id @default(cuid())
-  type   ActionType
-  config Json // e.g., { "status": "IN_REVIEW" } or { "assigneeId": "user-id" }
-  
-  ruleId String
-  rule   AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
-
-  @@index([ruleId])
-  @@map("automation_actions")
+model AutomationAction {
+  id        String   @id @default(cuid())
+  ruleId    String
+  type      String
+  config    Json
+  createdAt DateTime @default(now())
+  rule      AutomationRule @relation(fields: [ruleId], references: [id])
 }
 
 model Contract {
